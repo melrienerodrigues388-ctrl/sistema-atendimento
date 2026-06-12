@@ -5,7 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sistema de Atendimento</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getDatabase, ref, set, get, push, onValue, update } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCd6AkXSD_TC8IR0HVamX7qf_wt1XzjAbY",
+    authDomain: "sistema-atendimento-aa68d.firebaseapp.com",
+    databaseURL: "https://sistema-atendimento-aa68d-default-rtdb.firebaseio.com",
+    projectId: "sistema-atendimento-aa68d",
+    storageBucket: "sistema-atendimento-aa68d.firebasestorage.app",
+    messagingSenderId: "856294741048",
+    appId: "1:856294741048:web:placeholder"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  window._db = db;
+  window._dbFns = { ref, set, get, push, onValue, update };
+  window._firebaseReady = true;
+  document.dispatchEvent(new Event('firebaseReady'));
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -20,774 +41,428 @@
   --verde:#e8f7ee;--verde2:#5cb87a;--verde3:#3d9960;
   --font:'Nunito',sans-serif;
 }
-
 body{font-family:var(--font);background:var(--fundo);color:var(--texto);min-height:100vh}
-
-/* ===================== UTILITÁRIOS ===================== */
 .hidden{display:none!important}
 input,textarea,button,select{font-family:var(--font)}
 button{cursor:pointer}
-.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:0.03em}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
 .badge-novo{background:var(--lilas);color:var(--lilas4)}
-.badge-conversa{background:var(--azul);color:var(--azul3)}
-.badge-formulario{background:#fff3e0;color:#e07b00}
 .badge-pago{background:var(--verde);color:var(--verde3)}
 
-/* ===================== TELA DE BOAS-VINDAS DO CLIENTE ===================== */
-#tela-cliente{
-  min-height:100vh;display:flex;flex-direction:column;
-  background:var(--fundo);
-}
-.cliente-header{
-  background:var(--branco);border-bottom:1px solid var(--borda);
-  padding:16px 20px;display:flex;align-items:center;gap:14px;
-  box-shadow:var(--sombra);
-}
-.cliente-header .logo-area{
-  width:44px;height:44px;border-radius:50%;background:var(--lilas);
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  overflow:hidden;
-}
-.cliente-header .logo-area img{width:100%;height:100%;object-fit:cover}
-.cliente-header .logo-area span{font-size:20px}
-.cliente-header .empresa-info h2{font-size:16px;font-weight:700;color:var(--texto)}
-.cliente-header .empresa-info p{font-size:12px;color:var(--texto3)}
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--fundo);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:12px}
+#loading .spin{width:40px;height:40px;border:3px solid var(--lilas2);border-top-color:var(--lilas4);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{font-size:14px;color:var(--texto3)}
 
-.chat-area{
-  flex:1;padding:16px;overflow-y:auto;
-  display:flex;flex-direction:column;gap:10px;
-  max-width:680px;width:100%;margin:0 auto;
-}
+/* CLIENTE */
+#tela-cliente{min-height:100vh;display:flex;flex-direction:column}
+.cliente-header{background:var(--branco);border-bottom:1px solid var(--borda);padding:14px 20px;display:flex;align-items:center;gap:12px;box-shadow:var(--sombra);position:sticky;top:0;z-index:10}
+.cliente-header .logo-area{width:42px;height:42px;border-radius:50%;background:var(--lilas);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;font-size:20px}
+.cliente-header .logo-area img{width:100%;height:100%;object-fit:cover}
+.cliente-header h2{font-size:15px;font-weight:700;color:var(--texto)}
+.cliente-header p{font-size:12px;color:var(--texto3)}
+.chat-area{flex:1;padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;max-width:680px;width:100%;margin:0 auto;padding-bottom:80px}
 .msg{display:flex;flex-direction:column;max-width:78%}
 .msg.dono{align-self:flex-start}
-.msg.cliente{align-self:flex-end}
-.msg .balao{
-  padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.55;
-  word-break:break-word;
-}
-.msg.dono .balao{
-  background:var(--branco);border:1px solid var(--borda);
-  border-bottom-left-radius:4px;color:var(--texto);
-  box-shadow:0 1px 4px rgba(107,78,140,0.07);
-}
-.msg.cliente .balao{
-  background:var(--lilas4);color:#fff;
-  border-bottom-right-radius:4px;
-}
-.msg .hora{font-size:10px;color:var(--texto3);margin-top:3px;padding:0 4px}
-.msg.cliente .hora{text-align:right}
+.msg.cliente-msg{align-self:flex-end}
+.balao{padding:10px 14px;border-radius:18px;font-size:14px;line-height:1.55;word-break:break-word}
+.msg.dono .balao{background:var(--branco);border:1px solid var(--borda);border-bottom-left-radius:4px;color:var(--texto);box-shadow:0 1px 4px rgba(107,78,140,0.07)}
+.msg.cliente-msg .balao{background:var(--lilas4);color:#fff;border-bottom-right-radius:4px}
+.hora{font-size:10px;color:var(--texto3);margin-top:3px;padding:0 4px}
+.msg.cliente-msg .hora{text-align:right}
 
-/* card de modelo de teste no chat */
-.msg-modelo{
-  background:var(--branco);border:1px solid var(--borda);border-radius:var(--radius);
-  overflow:hidden;max-width:300px;box-shadow:var(--sombra);
-}
+.msg-tema{background:var(--branco);border:1px solid var(--borda);border-radius:var(--radius);padding:12px;max-width:280px;box-shadow:var(--sombra)}
+.msg-tema .tema-label{font-size:10px;color:var(--texto3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
+.msg-tema .tema-nome{font-size:15px;font-weight:700;color:var(--texto);margin-bottom:10px}
+.msg-tema a{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--lilas4);color:#fff;padding:10px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none}
+
+.msg-modelo{background:var(--branco);border:1px solid var(--borda);border-radius:var(--radius);overflow:hidden;max-width:300px;box-shadow:var(--sombra)}
 .msg-modelo img{width:100%;height:160px;object-fit:cover;display:block}
 .msg-modelo .modelo-info{padding:12px}
 .msg-modelo .modelo-titulo{font-size:13px;font-weight:700;color:var(--texto);margin-bottom:8px}
-.msg-modelo .modelo-btns{display:flex;flex-direction:column;gap:6px}
-.msg-modelo .modelo-btns a{
-  display:flex;align-items:center;justify-content:center;gap:6px;
-  padding:8px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;
-  transition:all 0.2s;
-}
+.modelo-btns{display:flex;flex-direction:column;gap:6px}
+.modelo-btns a{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;transition:all 0.2s}
 .btn-pdf{background:var(--lilas);color:var(--lilas4)}
-.btn-pdf:hover{background:var(--lilas2)}
 .btn-link{background:var(--azul);color:var(--azul3)}
-.btn-link:hover{background:var(--azul2)}
 
-/* card de tema no chat */
-.msg-tema{
-  background:var(--branco);border:1px solid var(--borda);border-radius:var(--radius);
-  padding:12px;max-width:280px;box-shadow:var(--sombra);
-}
-.msg-tema .tema-label{font-size:10px;color:var(--texto3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
-.msg-tema .tema-nome{font-size:15px;font-weight:700;color:var(--texto);margin-bottom:10px}
-.msg-tema a{
-  display:flex;align-items:center;justify-content:center;gap:6px;
-  background:var(--lilas4);color:#fff;padding:10px;border-radius:8px;
-  font-size:13px;font-weight:600;text-decoration:none;
-}
-.msg-tema a:hover{background:var(--lilas3)}
-
-/* formulário no chat */
-.msg-form{
-  background:var(--branco);border:1px solid var(--borda);border-radius:var(--radius);
-  padding:16px;max-width:340px;box-shadow:var(--sombra);
-}
+.msg-form{background:var(--branco);border:1px solid var(--borda);border-radius:var(--radius);padding:16px;max-width:340px;box-shadow:var(--sombra)}
 .msg-form h4{font-size:14px;font-weight:700;color:var(--texto);margin-bottom:4px}
 .msg-form p{font-size:12px;color:var(--texto3);margin-bottom:14px}
 .form-field{margin-bottom:10px}
 .form-field label{display:block;font-size:11px;color:var(--texto2);font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.05em}
-.form-field input,.form-field textarea,.form-field select{
-  width:100%;background:var(--fundo);border:1px solid var(--borda);
-  border-radius:8px;padding:9px 12px;font-size:13px;color:var(--texto);
-  outline:none;transition:border-color 0.2s;font-family:var(--font);
-}
-.form-field input:focus,.form-field textarea:focus,.form-field select:focus{border-color:var(--lilas3)}
+.form-field input,.form-field textarea,.form-field select{width:100%;background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--texto);outline:none;transition:border-color 0.2s;font-family:var(--font)}
+.form-field input:focus,.form-field textarea:focus{border-color:var(--lilas3)}
 .form-field textarea{resize:vertical;min-height:70px}
-.btn-enviar-form{
-  width:100%;padding:11px;background:var(--lilas4);color:#fff;
-  border:none;border-radius:8px;font-size:14px;font-weight:700;
-  transition:all 0.2s;margin-top:4px;
-}
+.btn-enviar-form{width:100%;padding:11px;background:var(--lilas4);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;transition:all 0.2s;margin-top:4px}
 .btn-enviar-form:hover{background:var(--lilas3)}
 
-/* input do cliente */
-.chat-input-area{
-  background:var(--branco);border-top:1px solid var(--borda);
-  padding:12px 16px;max-width:680px;width:100%;margin:0 auto;
-}
-.chat-input-wrap{display:flex;gap:8px;align-items:flex-end}
-.chat-input-wrap textarea{
-  flex:1;background:var(--fundo);border:1px solid var(--borda);
-  border-radius:22px;padding:10px 16px;font-size:14px;color:var(--texto);
-  outline:none;resize:none;max-height:120px;line-height:1.5;
-  font-family:var(--font);transition:border-color 0.2s;
-}
+.chat-input-fixo{position:fixed;bottom:0;left:0;right:0;background:var(--branco);border-top:1px solid var(--borda);padding:10px 16px;z-index:10}
+.chat-input-wrap{display:flex;gap:8px;align-items:flex-end;max-width:680px;margin:0 auto}
+.chat-input-wrap textarea{flex:1;background:var(--fundo);border:1px solid var(--borda);border-radius:22px;padding:10px 16px;font-size:14px;color:var(--texto);outline:none;resize:none;max-height:120px;line-height:1.5;font-family:var(--font);transition:border-color 0.2s}
 .chat-input-wrap textarea:focus{border-color:var(--lilas3)}
-.btn-send{
-  width:42px;height:42px;border-radius:50%;background:var(--lilas4);
-  border:none;color:#fff;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;transition:all 0.2s;
-}
+.btn-send{width:42px;height:42px;border-radius:50%;background:var(--lilas4);border:none;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.2s}
 .btn-send:hover{background:var(--lilas3)}
 .btn-send svg{width:18px;height:18px}
 
-/* ===================== LOGIN ADMIN ===================== */
-#tela-login{
-  min-height:100vh;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,var(--lilas) 0%,var(--rosa) 100%);
-  padding:2rem;
-}
-.login-card{
-  background:var(--branco);border-radius:var(--radius2);padding:2.5rem;
-  width:100%;max-width:380px;box-shadow:var(--sombra2);text-align:center;
-}
-.login-card .icon{
-  width:64px;height:64px;border-radius:50%;background:var(--lilas);
-  display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;
-  font-size:28px;
-}
-.login-card h2{font-size:22px;font-weight:700;color:var(--texto);margin-bottom:6px}
+/* LOGIN */
+#tela-login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--lilas) 0%,var(--rosa) 100%);padding:2rem}
+.login-card{background:var(--branco);border-radius:var(--radius2);padding:2.5rem;width:100%;max-width:360px;box-shadow:var(--sombra2);text-align:center}
+.login-card .icon{width:60px;height:60px;border-radius:50%;background:var(--lilas);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:26px}
+.login-card h2{font-size:20px;font-weight:700;margin-bottom:6px}
 .login-card p{font-size:13px;color:var(--texto3);margin-bottom:1.5rem}
 .login-field{margin-bottom:1rem;text-align:left}
 .login-field label{display:block;font-size:12px;font-weight:600;color:var(--texto2);margin-bottom:5px}
-.login-field input{
-  width:100%;background:var(--fundo);border:1.5px solid var(--borda);
-  border-radius:10px;padding:11px 14px;font-size:14px;color:var(--texto);
-  outline:none;transition:border-color 0.2s;
-}
+.login-field input{width:100%;background:var(--fundo);border:1.5px solid var(--borda);border-radius:10px;padding:11px 14px;font-size:14px;color:var(--texto);outline:none;transition:border-color 0.2s}
 .login-field input:focus{border-color:var(--lilas3)}
-.btn-login{
-  width:100%;padding:13px;background:var(--lilas4);color:#fff;
-  border:none;border-radius:10px;font-size:15px;font-weight:700;
-  transition:all 0.2s;margin-top:6px;
-}
+.btn-login{width:100%;padding:13px;background:var(--lilas4);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;transition:all 0.2s;margin-top:6px}
 .btn-login:hover{background:var(--lilas3)}
 .login-erro{font-size:12px;color:#e05555;margin-top:8px;display:none}
 
-/* ===================== PAINEL ADMIN ===================== */
+/* ADMIN */
 #tela-admin{min-height:100vh;display:flex;flex-direction:column}
-
-/* header admin */
-.admin-header{
-  background:var(--branco);border-bottom:1px solid var(--borda);
-  padding:0 20px;height:60px;display:flex;align-items:center;
-  gap:14px;box-shadow:var(--sombra);position:sticky;top:0;z-index:100;
-}
-.admin-header .logo-area{
-  width:38px;height:38px;border-radius:50%;background:var(--lilas);
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  overflow:hidden;font-size:18px;
-}
+.admin-header{background:var(--branco);border-bottom:1px solid var(--borda);padding:0 16px;height:58px;display:flex;align-items:center;gap:12px;box-shadow:var(--sombra);position:sticky;top:0;z-index:100;flex-shrink:0}
+.admin-header .logo-area{width:36px;height:36px;border-radius:50%;background:var(--lilas);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;font-size:17px}
 .admin-header .logo-area img{width:100%;height:100%;object-fit:cover}
-.admin-header h1{font-size:16px;font-weight:700;color:var(--texto);flex:1}
-.admin-header .nav-pills{display:flex;gap:4px}
-.nav-pill{
-  padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;
-  border:none;background:transparent;color:var(--texto2);transition:all 0.2s;
-}
+.admin-header h1{font-size:15px;font-weight:700;color:var(--texto);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-pills{display:flex;gap:3px}
+.nav-pill{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;border:none;background:transparent;color:var(--texto2);transition:all 0.2s;white-space:nowrap}
 .nav-pill.ativo{background:var(--lilas);color:var(--lilas4)}
 .nav-pill:hover:not(.ativo){background:var(--fundo2)}
-.btn-novo-cliente{
-  padding:8px 16px;background:var(--lilas4);color:#fff;border:none;
-  border-radius:20px;font-size:13px;font-weight:700;display:flex;
-  align-items:center;gap:6px;transition:all 0.2s;white-space:nowrap;
-}
+.btn-novo-cliente{padding:7px 14px;background:var(--lilas4);color:#fff;border:none;border-radius:20px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;transition:all 0.2s;white-space:nowrap;flex-shrink:0}
 .btn-novo-cliente:hover{background:var(--lilas3)}
+.hamburger{display:none;flex-direction:column;gap:4px;padding:8px;border:none;background:transparent;flex-shrink:0}
+.hamburger span{display:block;width:20px;height:2px;background:var(--texto2);border-radius:2px}
 
-/* hamburger mobile */
-.hamburger{display:none;flex-direction:column;gap:5px;padding:8px;border:none;background:transparent}
-.hamburger span{display:block;width:22px;height:2px;background:var(--texto2);border-radius:2px}
-.mobile-menu{
-  display:none;position:fixed;top:60px;left:0;right:0;bottom:0;
-  background:rgba(45,32,64,0.5);z-index:200;
-}
-.mobile-menu.aberto{display:block}
-.mobile-menu-inner{
-  background:var(--branco);padding:1rem;border-bottom:1px solid var(--borda);
-  display:flex;flex-direction:column;gap:6px;
-}
-.mobile-menu-inner .nav-pill{text-align:left;padding:12px 16px;border-radius:10px}
+.admin-body{flex:1;display:flex;overflow:hidden;min-height:0}
 
-/* admin body */
-.admin-body{flex:1;display:flex;overflow:hidden}
-
-/* sidebar clientes */
-.sidebar{
-  width:300px;flex-shrink:0;border-right:1px solid var(--borda);
-  background:var(--branco);display:flex;flex-direction:column;
-  overflow:hidden;
-}
-.sidebar-search{padding:12px;border-bottom:1px solid var(--borda)}
-.sidebar-search input{
-  width:100%;background:var(--fundo);border:1px solid var(--borda);
-  border-radius:22px;padding:9px 14px 9px 36px;font-size:13px;
-  color:var(--texto);outline:none;transition:border-color 0.2s;
-}
+/* SIDEBAR */
+.sidebar{width:280px;flex-shrink:0;border-right:1px solid var(--borda);background:var(--branco);display:flex;flex-direction:column;overflow:hidden;transition:left 0.3s}
+.sidebar-search{padding:10px;border-bottom:1px solid var(--borda)}
+.sidebar-search .sw{position:relative}
+.sidebar-search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--texto3);width:15px;height:15px}
+.sidebar-search input{width:100%;background:var(--fundo);border:1px solid var(--borda);border-radius:20px;padding:8px 12px 8px 32px;font-size:13px;color:var(--texto);outline:none;transition:border-color 0.2s}
 .sidebar-search input:focus{border-color:var(--lilas3)}
-.sidebar-search .search-wrap{position:relative}
-.sidebar-search .search-wrap svg{
-  position:absolute;left:11px;top:50%;transform:translateY(-50%);
-  color:var(--texto3);width:16px;height:16px;
-}
-.clientes-lista{flex:1;overflow-y:auto;padding:8px}
-.cliente-item{
-  padding:12px;border-radius:var(--radius);cursor:pointer;
-  transition:all 0.2s;display:flex;align-items:center;gap:10px;
-  border:1.5px solid transparent;margin-bottom:4px;
-}
+.clientes-lista{flex:1;overflow-y:auto;padding:6px}
+.cliente-item{padding:10px;border-radius:var(--radius);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:10px;border:1.5px solid transparent;margin-bottom:3px}
 .cliente-item:hover{background:var(--fundo2)}
 .cliente-item.ativo{background:var(--lilas);border-color:var(--lilas2)}
-.cliente-item .avatar{
-  width:40px;height:40px;border-radius:50%;background:var(--lilas2);
-  display:flex;align-items:center;justify-content:center;
-  font-size:16px;font-weight:700;color:var(--lilas4);flex-shrink:0;
-}
+.cliente-item .avatar{width:38px;height:38px;border-radius:50%;background:var(--lilas2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--lilas4);flex-shrink:0}
 .cliente-item .info{flex:1;min-width:0}
-.cliente-item .info .nome{font-size:14px;font-weight:600;color:var(--texto);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cliente-item .info .ultima{font-size:12px;color:var(--texto3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-.cliente-item .right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.cliente-item .nome{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cliente-item .ultima{font-size:11px;color:var(--texto3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.cliente-item .right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
 .cliente-item .hora-msg{font-size:10px;color:var(--texto3)}
-.notif{
-  width:18px;height:18px;background:var(--lilas4);color:#fff;
-  border-radius:50%;font-size:10px;font-weight:700;
-  display:flex;align-items:center;justify-content:center;
-}
+.notif{width:17px;height:17px;background:var(--lilas4);color:#fff;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center}
 .vazio{text-align:center;padding:2rem 1rem;color:var(--texto3);font-size:13px}
 
-/* main admin - chat */
-.admin-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--fundo)}
-.admin-main .chat-topbar{
-  background:var(--branco);border-bottom:1px solid var(--borda);
-  padding:12px 20px;display:flex;align-items:center;gap:12px;
-  box-shadow:0 1px 4px rgba(107,78,140,0.06);
-}
-.chat-topbar .avatar{
-  width:38px;height:38px;border-radius:50%;background:var(--lilas2);
-  display:flex;align-items:center;justify-content:center;
-  font-size:15px;font-weight:700;color:var(--lilas4);flex-shrink:0;
-}
-.chat-topbar .info h3{font-size:15px;font-weight:700;color:var(--texto)}
-.chat-topbar .info p{font-size:12px;color:var(--texto3)}
-.chat-topbar .acoes{margin-left:auto;display:flex;gap:8px}
-.btn-acao{
-  padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;
-  border:1.5px solid var(--borda);background:var(--branco);color:var(--texto2);
-  display:flex;align-items:center;gap:5px;transition:all 0.2s;white-space:nowrap;
-}
-.btn-acao:hover{background:var(--fundo2);border-color:var(--lilas2)}
+/* CHAT ADMIN */
+.admin-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--fundo);min-width:0}
+.chat-topbar{background:var(--branco);border-bottom:1px solid var(--borda);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.chat-topbar .avatar{width:36px;height:36px;border-radius:50%;background:var(--lilas2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--lilas4);flex-shrink:0}
+.chat-topbar .info h3{font-size:14px;font-weight:700}
+.chat-topbar .info p{font-size:11px;color:var(--texto3)}
+.chat-topbar .acoes{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.btn-acao{padding:6px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1.5px solid var(--borda);background:var(--branco);color:var(--texto2);display:flex;align-items:center;gap:4px;transition:all 0.2s;white-space:nowrap}
+.btn-acao:hover{background:var(--fundo2)}
 .btn-acao.destaque{background:var(--lilas);border-color:var(--lilas2);color:var(--lilas4)}
 .btn-acao.verde{background:var(--verde);border-color:#b8e0c8;color:var(--verde3)}
-
-/* chat mensagens admin */
-.admin-chat{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px}
-
-/* painel direito - ferramentas */
-.painel-dir{
-  width:280px;flex-shrink:0;border-left:1px solid var(--borda);
-  background:var(--branco);display:flex;flex-direction:column;
-  overflow:hidden;
-}
-.painel-dir-tabs{
-  display:flex;border-bottom:1px solid var(--borda);
-  background:var(--fundo2);
-}
-.painel-tab{
-  flex:1;padding:10px 6px;font-size:11px;font-weight:700;
-  border:none;background:transparent;color:var(--texto3);
-  text-transform:uppercase;letter-spacing:0.06em;transition:all 0.2s;
-  border-bottom:2px solid transparent;
-}
-.painel-tab.ativo{color:var(--lilas4);border-bottom-color:var(--lilas4);background:var(--branco)}
-.painel-conteudo{flex:1;overflow-y:auto;padding:12px}
-
-/* seções do painel direito */
-.secao-titulo{
-  font-size:11px;font-weight:700;color:var(--texto3);text-transform:uppercase;
-  letter-spacing:0.08em;margin-bottom:8px;margin-top:12px;
-}
-.secao-titulo:first-child{margin-top:0}
-
-/* respostas rápidas */
-.resp-item{
-  background:var(--fundo);border:1px solid var(--borda);border-radius:8px;
-  padding:8px 10px;font-size:12px;color:var(--texto2);cursor:pointer;
-  transition:all 0.2s;margin-bottom:5px;line-height:1.5;
-}
-.resp-item:hover{background:var(--lilas);border-color:var(--lilas2);color:var(--lilas4)}
-.btn-add-pequeno{
-  width:100%;padding:7px;background:transparent;border:1.5px dashed var(--borda);
-  border-radius:8px;font-size:12px;color:var(--texto3);
-  transition:all 0.2s;margin-top:4px;
-}
-.btn-add-pequeno:hover{border-color:var(--lilas3);color:var(--lilas4);background:var(--lilas)}
-
-/* temas no painel */
-.categoria-bloco{margin-bottom:12px}
-.categoria-nome{
-  font-size:12px;font-weight:700;color:var(--texto2);
-  display:flex;align-items:center;justify-content:space-between;
-  cursor:pointer;padding:6px 0;
-}
-.tema-subitem{
-  background:var(--fundo);border:1px solid var(--borda);border-radius:8px;
-  padding:8px 10px;display:flex;align-items:center;gap:8px;
-  margin-bottom:4px;
-}
-.tema-subitem .tema-texto{flex:1;font-size:12px;color:var(--texto2)}
-.btn-mostrar{
-  padding:4px 10px;background:var(--lilas);color:var(--lilas4);
-  border:none;border-radius:6px;font-size:11px;font-weight:700;
-  transition:all 0.2s;white-space:nowrap;
-}
-.btn-mostrar:hover{background:var(--lilas2)}
-
-/* modelos de teste no painel */
-.modelo-card-mini{
-  background:var(--fundo);border:1px solid var(--borda);border-radius:8px;
-  padding:10px;margin-bottom:6px;
-}
-.modelo-card-mini .nome{font-size:12px;font-weight:700;color:var(--texto);margin-bottom:6px}
-.modelo-card-mini .cat{font-size:10px;color:var(--texto3);margin-bottom:8px}
-.btn-enviar-modelo{
-  width:100%;padding:7px;background:var(--lilas4);color:#fff;
-  border:none;border-radius:7px;font-size:12px;font-weight:700;
-  transition:all 0.2s;
-}
-.btn-enviar-modelo:hover{background:var(--lilas3)}
-
-/* formulários no painel */
-.form-tipo-btn{
-  width:100%;padding:10px;background:var(--fundo);border:1.5px solid var(--borda);
-  border-radius:8px;font-size:13px;font-weight:600;color:var(--texto2);
-  display:flex;align-items:center;gap:8px;transition:all 0.2s;margin-bottom:6px;
-  text-align:left;
-}
-.form-tipo-btn:hover{background:var(--lilas);border-color:var(--lilas2);color:var(--lilas4)}
-.form-tipo-btn span{font-size:18px}
-
-/* input admin */
-.admin-input-area{
-  background:var(--branco);border-top:1px solid var(--borda);
-  padding:12px 20px;
-}
+.admin-chat{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.admin-input-area{background:var(--branco);border-top:1px solid var(--borda);padding:10px 16px;flex-shrink:0}
 .admin-input-wrap{display:flex;gap:8px;align-items:flex-end}
-.admin-input-wrap textarea{
-  flex:1;background:var(--fundo);border:1.5px solid var(--borda);
-  border-radius:22px;padding:10px 16px;font-size:14px;color:var(--texto);
-  outline:none;resize:none;max-height:120px;line-height:1.5;
-  font-family:var(--font);transition:border-color 0.2s;
-}
+.admin-input-wrap textarea{flex:1;background:var(--fundo);border:1.5px solid var(--borda);border-radius:22px;padding:9px 14px;font-size:13px;color:var(--texto);outline:none;resize:none;max-height:100px;line-height:1.5;font-family:var(--font);transition:border-color 0.2s}
 .admin-input-wrap textarea:focus{border-color:var(--lilas3)}
-.btn-send-admin{
-  width:42px;height:42px;border-radius:50%;background:var(--lilas4);
-  border:none;color:#fff;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;transition:all 0.2s;
-}
+.btn-send-admin{width:40px;height:40px;border-radius:50%;background:var(--lilas4);border:none;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .btn-send-admin:hover{background:var(--lilas3)}
 
-/* aba config */
+/* PAINEL DIREITO */
+.painel-dir{width:260px;flex-shrink:0;border-left:1px solid var(--borda);background:var(--branco);display:flex;flex-direction:column;overflow:hidden}
+.painel-dir-tabs{display:flex;border-bottom:1px solid var(--borda);background:var(--fundo2)}
+.painel-tab{flex:1;padding:9px 4px;font-size:10px;font-weight:700;border:none;background:transparent;color:var(--texto3);text-transform:uppercase;letter-spacing:0.06em;transition:all 0.2s;border-bottom:2px solid transparent}
+.painel-tab.ativo{color:var(--lilas4);border-bottom-color:var(--lilas4);background:var(--branco)}
+.painel-conteudo{flex:1;overflow-y:auto;padding:10px}
+.secao-titulo{font-size:10px;font-weight:700;color:var(--texto3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px;margin-top:10px}
+.secao-titulo:first-child{margin-top:0}
+.resp-item{background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:7px 9px;font-size:12px;color:var(--texto2);cursor:pointer;transition:all 0.2s;margin-bottom:4px;line-height:1.5}
+.resp-item:hover{background:var(--lilas);border-color:var(--lilas2);color:var(--lilas4)}
+.btn-add-pequeno{width:100%;padding:7px;background:transparent;border:1.5px dashed var(--borda);border-radius:8px;font-size:11px;color:var(--texto3);transition:all 0.2s;margin-top:3px}
+.btn-add-pequeno:hover{border-color:var(--lilas3);color:var(--lilas4);background:var(--lilas)}
+.categoria-nome{font-size:11px;font-weight:700;color:var(--texto2);display:flex;align-items:center;justify-content:space-between;padding:5px 0;cursor:pointer}
+.tema-subitem{background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:7px 9px;display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.tema-subitem .tema-texto{flex:1;font-size:11px;color:var(--texto2)}
+.btn-mostrar{padding:3px 9px;background:var(--lilas);color:var(--lilas4);border:none;border-radius:6px;font-size:10px;font-weight:700;transition:all 0.2s;white-space:nowrap}
+.btn-mostrar:hover{background:var(--lilas2)}
+.modelo-card-mini{background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:9px;margin-bottom:5px}
+.modelo-card-mini .nome{font-size:11px;font-weight:700;color:var(--texto);margin-bottom:3px}
+.modelo-card-mini .cat{font-size:10px;color:var(--texto3);margin-bottom:7px}
+.btn-enviar-modelo{width:100%;padding:6px;background:var(--lilas4);color:#fff;border:none;border-radius:7px;font-size:11px;font-weight:700;transition:all 0.2s}
+.btn-enviar-modelo:hover{background:var(--lilas3)}
+.form-tipo-btn{width:100%;padding:9px;background:var(--fundo);border:1.5px solid var(--borda);border-radius:8px;font-size:12px;font-weight:600;color:var(--texto2);display:flex;align-items:center;gap:7px;transition:all 0.2s;margin-bottom:5px;text-align:left}
+.form-tipo-btn:hover{background:var(--lilas);border-color:var(--lilas2);color:var(--lilas4)}
+.form-tipo-btn span{font-size:17px}
+
+/* SEM CLIENTE */
+.sem-cliente{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--texto3);gap:10px;padding:2rem;text-align:center}
+.sem-cliente .icone{font-size:44px;opacity:0.35}
+.sem-cliente p{font-size:13px;max-width:220px;line-height:1.6}
+
+/* ABAS */
+.aba-content{display:none;flex:1;overflow:hidden}
+.aba-content.ativa{display:flex}
+.aba-scroll{flex:1;overflow-y:auto;padding:1.5rem;max-width:560px;margin:0 auto;width:100%}
+
+/* CONFIG */
 .config-section{margin-bottom:1.5rem}
 .config-section h3{font-size:13px;font-weight:700;color:var(--texto2);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--borda)}
 .config-field{margin-bottom:10px}
 .config-field label{display:block;font-size:11px;font-weight:600;color:var(--texto3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px}
-.config-field input{
-  width:100%;background:var(--fundo);border:1px solid var(--borda);
-  border-radius:8px;padding:9px 12px;font-size:13px;color:var(--texto);
-  outline:none;transition:border-color 0.2s;
-}
+.config-field input{width:100%;background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--texto);outline:none;transition:border-color 0.2s}
 .config-field input:focus{border-color:var(--lilas3)}
-.btn-salvar-config{
-  width:100%;padding:11px;background:var(--lilas4);color:#fff;
-  border:none;border-radius:8px;font-size:13px;font-weight:700;
-  transition:all 0.2s;
-}
+.btn-salvar-config{width:100%;padding:11px;background:var(--lilas4);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;transition:all 0.2s}
 .btn-salvar-config:hover{background:var(--lilas3)}
-.config-logo-preview{
-  width:60px;height:60px;border-radius:50%;background:var(--lilas);
-  display:flex;align-items:center;justify-content:center;font-size:24px;
-  margin-bottom:10px;overflow:hidden;
-}
+.config-logo-preview{width:56px;height:56px;border-radius:50%;background:var(--lilas);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;overflow:hidden}
 .config-logo-preview img{width:100%;height:100%;object-fit:cover}
 
-/* aba cadastros */
-.cadastro-card{
-  background:var(--fundo);border:1px solid var(--borda);border-radius:var(--radius);
-  padding:14px;margin-bottom:8px;
-}
-.cadastro-card .cad-nome{font-size:14px;font-weight:700;color:var(--texto)}
+/* CADASTROS */
+.cadastro-card{background:var(--fundo);border:1px solid var(--borda);border-radius:var(--radius);padding:12px;margin-bottom:7px}
+.cadastro-card .cad-nome{font-size:14px;font-weight:700}
 .cadastro-card .cad-info{font-size:12px;color:var(--texto3);margin-top:3px}
-.cadastro-card .cad-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.cadastro-card .cad-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
 
-/* modal */
-.modal-overlay{
-  position:fixed;inset:0;background:rgba(45,32,64,0.45);
-  z-index:300;display:flex;align-items:center;justify-content:center;
-  padding:1rem;
-}
-.modal{
-  background:var(--branco);border-radius:var(--radius2);
-  width:100%;max-width:440px;max-height:90vh;overflow-y:auto;
-  box-shadow:var(--sombra2);
-}
-.modal-header{
-  padding:1.25rem 1.5rem 0;display:flex;align-items:center;
-  justify-content:space-between;
-}
-.modal-header h3{font-size:17px;font-weight:700;color:var(--texto)}
-.btn-fechar{
-  width:30px;height:30px;border-radius:50%;border:none;background:var(--fundo2);
-  color:var(--texto3);font-size:16px;display:flex;align-items:center;justify-content:center;
-  transition:all 0.2s;
-}
-.btn-fechar:hover{background:var(--borda);color:var(--texto)}
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(45,32,64,0.45);z-index:300;display:flex;align-items:center;justify-content:center;padding:1rem}
+.modal{background:var(--branco);border-radius:var(--radius2);width:100%;max-width:420px;max-height:90vh;overflow-y:auto;box-shadow:var(--sombra2)}
+.modal-header{padding:1.2rem 1.5rem 0;display:flex;align-items:center;justify-content:space-between}
+.modal-header h3{font-size:16px;font-weight:700}
+.btn-fechar{width:28px;height:28px;border-radius:50%;border:none;background:var(--fundo2);color:var(--texto3);font-size:15px;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+.btn-fechar:hover{background:var(--borda)}
 .modal-body{padding:1rem 1.5rem 1.5rem}
 .modal-field{margin-bottom:1rem}
-.modal-field label{display:block;font-size:12px;font-weight:600;color:var(--texto2);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.04em}
-.modal-field input,.modal-field select,.modal-field textarea{
-  width:100%;background:var(--fundo);border:1.5px solid var(--borda);
-  border-radius:8px;padding:10px 13px;font-size:14px;color:var(--texto);
-  outline:none;transition:border-color 0.2s;font-family:var(--font);
-}
+.modal-field label{display:block;font-size:11px;font-weight:600;color:var(--texto2);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.04em}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--fundo);border:1.5px solid var(--borda);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--texto);outline:none;transition:border-color 0.2s;font-family:var(--font)}
 .modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--lilas3)}
 .modal-field textarea{resize:vertical;min-height:70px}
 .modal-btns{display:flex;gap:8px;margin-top:1rem}
-.btn-modal-cancel{
-  flex:1;padding:11px;background:var(--fundo2);color:var(--texto2);
-  border:1px solid var(--borda);border-radius:8px;font-size:14px;font-weight:600;
-  transition:all 0.2s;
-}
-.btn-modal-cancel:hover{background:var(--borda)}
-.btn-modal-ok{
-  flex:1;padding:11px;background:var(--lilas4);color:#fff;
-  border:none;border-radius:8px;font-size:14px;font-weight:700;
-  transition:all 0.2s;
-}
+.btn-modal-cancel{flex:1;padding:10px;background:var(--fundo2);color:var(--texto2);border:1px solid var(--borda);border-radius:8px;font-size:13px;font-weight:600;transition:all 0.2s}
+.btn-modal-ok{flex:1;padding:10px;background:var(--lilas4);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;transition:all 0.2s}
 .btn-modal-ok:hover{background:var(--lilas3)}
 
-/* sem cliente selecionado */
-.sem-cliente{
-  flex:1;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;color:var(--texto3);gap:12px;padding:2rem;
-  text-align:center;
-}
-.sem-cliente .icone{font-size:48px;opacity:0.4}
-.sem-cliente p{font-size:14px;max-width:240px;line-height:1.6}
-
-/* aba abas secundárias painel */
-#aba-clientes-painel,#aba-config-painel,#aba-cadastros-painel{display:none}
-#aba-clientes-painel.ativa,#aba-config-painel.ativa,#aba-cadastros-painel.ativa{display:flex;flex:1;overflow:hidden}
-
-/* toast */
-.toast{
-  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);
-  background:#2d2040;color:#fff;padding:10px 20px;border-radius:22px;
-  font-size:13px;font-weight:600;z-index:500;transition:all 0.3s;opacity:0;
-}
-.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-
-/* link copiado */
-.link-box-admin{
-  background:var(--lilas);border:1px solid var(--lilas2);border-radius:8px;
-  padding:10px 12px;font-size:12px;color:var(--lilas4);
-  display:flex;align-items:center;gap:8px;margin-top:8px;
-}
-.link-box-admin span{flex:1;word-break:break-all;font-family:monospace;font-size:11px}
-.btn-copiar{
-  padding:4px 10px;background:var(--lilas4);color:#fff;border:none;
-  border-radius:6px;font-size:11px;font-weight:700;flex-shrink:0;transition:all 0.2s;
-}
+/* LINK BOX */
+.link-box-admin{background:var(--lilas);border:1px solid var(--lilas2);border-radius:8px;padding:9px 12px;font-size:11px;color:var(--lilas4);display:flex;align-items:center;gap:7px;margin-top:8px}
+.link-box-admin span{flex:1;word-break:break-all;font-family:monospace}
+.btn-copiar{padding:4px 9px;background:var(--lilas4);color:#fff;border:none;border-radius:6px;font-size:10px;font-weight:700;flex-shrink:0;transition:all 0.2s}
 .btn-copiar:hover{background:var(--lilas3)}
 
-@media(max-width:900px){
-  .painel-dir{display:none}
-  .sidebar{width:260px}
-}
+/* TOAST */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(60px);background:#2d2040;color:#fff;padding:10px 20px;border-radius:22px;font-size:13px;font-weight:600;z-index:500;transition:all 0.3s;opacity:0;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+@media(max-width:900px){.painel-dir{display:none}}
 @media(max-width:640px){
-  .sidebar{
-    position:fixed;left:-100%;top:60px;bottom:0;z-index:150;
-    transition:left 0.3s;width:280px;box-shadow:var(--sombra2);
-  }
+  .sidebar{position:fixed;left:-100%;top:58px;bottom:0;z-index:150;transition:left 0.3s;width:260px;box-shadow:var(--sombra2)}
   .sidebar.aberta{left:0}
-  .admin-header .nav-pills{display:none}
+  .nav-pills{display:none}
   .hamburger{display:flex}
-  .btn-novo-cliente span{display:none}
   .chat-topbar .acoes .btn-acao span{display:none}
 }
 </style>
 </head>
 <body>
 
-<!-- ============================================================
-     TELA CLIENTE
-     ============================================================ -->
+<div id="loading"><div class="spin"></div><p>Carregando...</p></div>
+
+<!-- CLIENTE -->
 <div id="tela-cliente" class="hidden">
   <div class="cliente-header">
-    <div class="logo-area" id="clienteLogoArea"><span>💜</span></div>
-    <div class="empresa-info">
-      <h2 id="clienteEmpresaNome">Carregando...</h2>
-      <p id="clienteEmpresaSub">Atendimento personalizado</p>
+    <div class="logo-area" id="cliLogo"><span>💜</span></div>
+    <div>
+      <h2 id="cliEmpresa">Carregando...</h2>
+      <p id="cliSub">Atendimento personalizado</p>
     </div>
   </div>
-  <div class="chat-area" id="clienteChatArea"></div>
-  <div style="max-width:680px;width:100%;margin:0 auto;">
-    <div class="chat-input-area">
-      <div class="chat-input-wrap">
-        <textarea id="clienteInput" placeholder="Digite sua mensagem..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();clienteEnviar()}"></textarea>
-        <button class="btn-send" onclick="clienteEnviar()">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
-        </button>
-      </div>
+  <div class="chat-area" id="cliChatArea"></div>
+  <div class="chat-input-fixo">
+    <div class="chat-input-wrap">
+      <textarea id="cliInput" placeholder="Digite sua mensagem..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();cliEnviar()}"></textarea>
+      <button class="btn-send" onclick="cliEnviar()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+      </button>
     </div>
   </div>
 </div>
 
-<!-- ============================================================
-     TELA LOGIN
-     ============================================================ -->
+<!-- LOGIN -->
 <div id="tela-login" class="hidden">
   <div class="login-card">
     <div class="icon">💜</div>
-    <h2>Área administrativa</h2>
-    <p>Acesse seu painel de atendimento</p>
-    <div class="login-field">
-      <label>Usuário</label>
-      <input type="text" id="loginUsuario" placeholder="admin" autocomplete="username">
-    </div>
-    <div class="login-field">
-      <label>Senha</label>
-      <input type="password" id="loginSenha" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()">
-    </div>
+    <h2>Painel de atendimento</h2>
+    <p>Acesse sua área administrativa</p>
+    <div class="login-field"><label>Usuário</label><input type="text" id="loginU" placeholder="admin" autocomplete="username"></div>
+    <div class="login-field"><label>Senha</label><input type="password" id="loginS" placeholder="••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()"></div>
     <button class="btn-login" onclick="fazerLogin()">Entrar</button>
     <div class="login-erro" id="loginErro">Usuário ou senha incorretos</div>
   </div>
 </div>
 
-<!-- ============================================================
-     TELA ADMIN
-     ============================================================ -->
+<!-- ADMIN -->
 <div id="tela-admin" class="hidden">
-
-  <!-- Header -->
   <div class="admin-header">
-    <button class="hamburger" onclick="toggleSidebar()">
-      <span></span><span></span><span></span>
-    </button>
-    <div class="logo-area" id="adminLogoArea"><span>💜</span></div>
-    <h1 id="adminEmpresaNome">Meu Sistema</h1>
+    <button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+    <div class="logo-area" id="admLogo"><span>💜</span></div>
+    <h1 id="admEmpresa">Meu Sistema</h1>
     <div class="nav-pills">
       <button class="nav-pill ativo" onclick="mudarAba('clientes')">Atendimento</button>
       <button class="nav-pill" onclick="mudarAba('config')">Configurações</button>
       <button class="nav-pill" onclick="mudarAba('cadastros')">Cadastros</button>
     </div>
-    <button class="btn-novo-cliente" onclick="abrirModalNovoCliente()">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      <span>Novo cliente</span>
+    <button class="btn-novo-cliente" onclick="abrirModal('modalNovoCli')">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Novo cliente
     </button>
   </div>
 
-  <!-- Mobile menu -->
-  <div class="mobile-menu" id="mobileMenu" onclick="if(event.target===this)fecharMobileMenu()">
-    <div class="mobile-menu-inner">
-      <button class="nav-pill" onclick="mudarAba('clientes');fecharMobileMenu()">Atendimento</button>
-      <button class="nav-pill" onclick="mudarAba('config');fecharMobileMenu()">Configurações</button>
-      <button class="nav-pill" onclick="mudarAba('cadastros');fecharMobileMenu()">Cadastros</button>
-    </div>
-  </div>
-
-  <!-- ABA CLIENTES -->
-  <div id="aba-clientes-painel" class="ativa">
-    <!-- Sidebar -->
-    <div class="sidebar" id="sidebar">
-      <div class="sidebar-search">
-        <div class="search-wrap">
-          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" placeholder="Buscar cliente..." oninput="filtrarClientes(this.value)" id="buscaCliente">
-        </div>
-      </div>
-      <div class="clientes-lista" id="clientesLista">
-        <div class="vazio">Nenhum cliente ainda.<br>Clique em + Novo cliente</div>
-      </div>
-    </div>
-
-    <!-- Main chat admin -->
-    <div class="admin-main" id="adminMain">
-      <div class="sem-cliente" id="semCliente">
-        <div class="icone">💬</div>
-        <p>Selecione um cliente para iniciar o atendimento</p>
-      </div>
-
-      <div id="chatAtivo" class="hidden" style="display:none;flex:1;flex-direction:column;overflow:hidden">
-        <div class="chat-topbar">
-          <div class="avatar" id="topbarAvatar">A</div>
-          <div class="info">
-            <h3 id="topbarNome">Nome</h3>
-            <p id="topbarStatus">Em atendimento</p>
-          </div>
-          <div class="acoes">
-            <button class="btn-acao" onclick="copiarLinkCliente()">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-              <span>Copiar link</span>
-            </button>
-            <button class="btn-acao destaque" onclick="abrirWhatsApp()">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-              <span>WhatsApp</span>
-            </button>
-            <button class="btn-acao verde" onclick="marcarPago()">
-              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>
-              <span>Pago</span>
-            </button>
+  <div class="admin-body">
+    <!-- ABA CLIENTES -->
+    <div class="aba-content ativa" id="aba-clientes" style="flex:1;overflow:hidden">
+      <div class="sidebar" id="sidebar">
+        <div class="sidebar-search">
+          <div class="sw">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Buscar cliente..." oninput="filtrarClis(this.value)">
           </div>
         </div>
+        <div class="clientes-lista" id="cliLista"><div class="vazio">Nenhum cliente ainda</div></div>
+      </div>
 
-        <div class="admin-chat" id="adminChatMsgs"></div>
-
-        <div class="admin-input-area">
-          <div class="admin-input-wrap">
-            <textarea id="adminInput" placeholder="Digite uma mensagem..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adminEnviar()}"></textarea>
-            <button class="btn-send-admin" onclick="adminEnviar()">
-              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
-            </button>
+      <div class="admin-main">
+        <div class="sem-cliente" id="semCli"><div class="icone">💬</div><p>Selecione um cliente para iniciar o atendimento</p></div>
+        <div id="chatAtivo" class="hidden" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+          <div class="chat-topbar">
+            <div class="avatar" id="topAvatar">A</div>
+            <div class="info"><h3 id="topNome">Nome</h3><p id="topStatus">Em atendimento</p></div>
+            <div class="acoes">
+              <button class="btn-acao" onclick="copiarLink()">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                <span>Copiar link</span>
+              </button>
+              <button class="btn-acao destaque" onclick="abrirWpp()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                <span>WhatsApp</span>
+              </button>
+              <button class="btn-acao verde" onclick="marcarPago()">
+                <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>
+                <span>Pago</span>
+              </button>
+            </div>
+          </div>
+          <div class="admin-chat" id="admChat"></div>
+          <div class="admin-input-area">
+            <div class="admin-input-wrap">
+              <textarea id="admInput" placeholder="Digite uma mensagem..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();admEnviar()}"></textarea>
+              <button class="btn-send-admin" onclick="admEnviar()">
+                <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Painel direito -->
-    <div class="painel-dir">
-      <div class="painel-dir-tabs">
-        <button class="painel-tab ativo" onclick="mudarPainelTab('rapidas')">Rápidas</button>
-        <button class="painel-tab" onclick="mudarPainelTab('temas')">Temas</button>
-        <button class="painel-tab" onclick="mudarPainelTab('modelos')">PDFs</button>
-        <button class="painel-tab" onclick="mudarPainelTab('forms')">Form.</button>
-      </div>
-      <div class="painel-conteudo" id="painelConteudo">
-        <!-- preenchido via JS -->
-      </div>
-    </div>
-  </div>
-
-  <!-- ABA CONFIG -->
-  <div id="aba-config-painel" style="flex:1;overflow-y:auto;padding:2rem;display:none">
-    <div style="max-width:500px;margin:0 auto">
-      <div class="config-section">
-        <h3>Identidade visual</h3>
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
-          <div class="config-logo-preview" id="configLogoPreview"><span id="configLogoIcon">💜</span><img id="configLogoImg" src="" style="display:none"></div>
-          <div>
-            <div style="font-size:13px;font-weight:600;color:var(--texto);margin-bottom:4px">Logo da empresa</div>
-            <button onclick="document.getElementById('logoUpload').click()" style="font-size:12px;padding:6px 12px;border-radius:8px;border:1px solid var(--borda);background:var(--fundo2);color:var(--texto2);cursor:pointer">Trocar imagem</button>
-            <input type="file" id="logoUpload" accept="image/*" style="display:none" onchange="handleLogoUpload(event)">
-          </div>
+      <div class="painel-dir">
+        <div class="painel-dir-tabs">
+          <button class="painel-tab ativo" onclick="mudarPTab('rapidas')">Rápidas</button>
+          <button class="painel-tab" onclick="mudarPTab('temas')">Temas</button>
+          <button class="painel-tab" onclick="mudarPTab('modelos')">PDFs</button>
+          <button class="painel-tab" onclick="mudarPTab('forms')">Form.</button>
         </div>
-        <div class="config-field"><label>Nome da empresa</label><input type="text" id="cfgEmpresa" placeholder="Ex: Convites da Ana"></div>
-        <div class="config-field"><label>Seu nome (opcional)</label><input type="text" id="cfgNome" placeholder="Ex: Ana Paula"></div>
-        <div class="config-field"><label>Frase de boas-vindas no chat</label><input type="text" id="cfgBoasVindas" placeholder="Ex: Olá! Seja bem-vinda 💜"></div>
+        <div class="painel-conteudo" id="painelConteudo"></div>
       </div>
-      <div class="config-section">
-        <h3>Acesso</h3>
-        <div class="config-field"><label>Usuário do painel</label><input type="text" id="cfgUsuario" placeholder="admin"></div>
-        <div class="config-field"><label>Senha do painel</label><input type="password" id="cfgSenha" placeholder="Nova senha"></div>
-      </div>
-      <div class="config-section">
-        <h3>WhatsApp</h3>
-        <div class="config-field"><label>Seu número (com código do país)</label><input type="text" id="cfgWpp" placeholder="5564999999999"></div>
-        <div style="font-size:12px;color:var(--texto3);margin-top:4px">Usado para receber o resumo quando um pedido for fechado</div>
-      </div>
-      <button class="btn-salvar-config" onclick="salvarConfig()">Salvar configurações</button>
     </div>
-  </div>
 
-  <!-- ABA CADASTROS -->
-  <div id="aba-cadastros-painel" style="flex:1;overflow-y:auto;padding:1.5rem;display:none">
-    <div style="max-width:600px;margin:0 auto">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem">
-        <h2 style="font-size:18px;font-weight:700;color:var(--texto)">Clientes pagantes</h2>
-        <span style="font-size:12px;color:var(--texto3)" id="totalCadastros">0 clientes</span>
+    <!-- ABA CONFIG -->
+    <div class="aba-content" id="aba-config">
+      <div class="aba-scroll">
+        <div class="config-section">
+          <h3>Identidade visual</h3>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+            <div class="config-logo-preview" id="cfgLogoPreview"><span id="cfgLogoIcon">💜</span><img id="cfgLogoImg" src="" style="display:none"></div>
+            <div>
+              <div style="font-size:13px;font-weight:600;margin-bottom:4px">Logo</div>
+              <button onclick="document.getElementById('logoUp').click()" style="font-size:11px;padding:5px 10px;border-radius:8px;border:1px solid var(--borda);background:var(--fundo2);color:var(--texto2);cursor:pointer">Trocar imagem</button>
+              <input type="file" id="logoUp" accept="image/*" style="display:none" onchange="handleLogo(event)">
+            </div>
+          </div>
+          <div class="config-field"><label>Nome da empresa</label><input type="text" id="cfgEmpresa" placeholder="Ex: Convites da Ana"></div>
+          <div class="config-field"><label>Seu nome (opcional)</label><input type="text" id="cfgNome" placeholder="Ex: Ana Paula"></div>
+          <div class="config-field"><label>Mensagem de boas-vindas</label><input type="text" id="cfgBV" placeholder="Ex: Olá! Seja bem-vinda 💜"></div>
+        </div>
+        <div class="config-section">
+          <h3>Acesso</h3>
+          <div class="config-field"><label>Usuário</label><input type="text" id="cfgUser" placeholder="admin"></div>
+          <div class="config-field"><label>Senha</label><input type="password" id="cfgSenha" placeholder="Nova senha"></div>
+        </div>
+        <div class="config-section">
+          <h3>WhatsApp para resumos</h3>
+          <div class="config-field"><label>Seu número (com código do país)</label><input type="text" id="cfgWpp" placeholder="5564999999999"></div>
+        </div>
+        <button class="btn-salvar-config" onclick="salvarConfig()">Salvar configurações</button>
       </div>
-      <div id="cadastrosLista">
-        <div class="vazio">Nenhum cliente marcado como pago ainda.</div>
+    </div>
+
+    <!-- ABA CADASTROS -->
+    <div class="aba-content" id="aba-cadastros">
+      <div class="aba-scroll">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <h2 style="font-size:17px;font-weight:700">Clientes pagantes</h2>
+          <span style="font-size:12px;color:var(--texto3)" id="totalCads">0 clientes</span>
+        </div>
+        <div id="cadsLista"><div class="vazio">Nenhum cliente pago ainda.</div></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ============================================================
-     MODAIS
-     ============================================================ -->
-
-<!-- Modal novo cliente -->
-<div class="modal-overlay hidden" id="modalNovoCliente">
+<!-- MODAIS -->
+<div class="modal-overlay hidden" id="modalNovoCli">
   <div class="modal">
-    <div class="modal-header">
-      <h3>Novo cliente</h3>
-      <button class="btn-fechar" onclick="fecharModal('modalNovoCliente')">×</button>
-    </div>
+    <div class="modal-header"><h3>Novo cliente</h3><button class="btn-fechar" onclick="fecharModal('modalNovoCli')">×</button></div>
     <div class="modal-body">
-      <div class="modal-field"><label>Nome do cliente</label><input type="text" id="novoClienteNome" placeholder="Ex: Maria Silva"></div>
-      <div class="modal-field"><label>WhatsApp (com código do país)</label><input type="text" id="novoClienteTel" placeholder="5564999999999"></div>
+      <div class="modal-field"><label>Nome</label><input type="text" id="ncNome" placeholder="Ex: Maria Silva"></div>
+      <div class="modal-field"><label>WhatsApp (com código do país)</label><input type="text" id="ncTel" placeholder="5564999999999"></div>
+      <div id="linkGeradoBox" style="display:none">
+        <div class="link-box-admin"><span id="linkGeradoTexto"></span><button class="btn-copiar" onclick="copiarTexto('linkGeradoTexto',this)">Copiar</button></div>
+        <p style="font-size:11px;color:var(--texto3);margin-top:6px">Cole esse link no WhatsApp do cliente 😊</p>
+      </div>
       <div class="modal-btns">
-        <button class="btn-modal-cancel" onclick="fecharModal('modalNovoCliente')">Cancelar</button>
-        <button class="btn-modal-ok" onclick="criarCliente()">Criar e gerar link</button>
+        <button class="btn-modal-cancel" onclick="fecharModal('modalNovoCli')">Fechar</button>
+        <button class="btn-modal-ok" id="btnCriarCli" onclick="criarCliente()">Criar e gerar link</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal add resposta rápida -->
-<div class="modal-overlay hidden" id="modalAddResposta">
+<div class="modal-overlay hidden" id="modalAddResp">
   <div class="modal">
-    <div class="modal-header">
-      <h3>Nova resposta rápida</h3>
-      <button class="btn-fechar" onclick="fecharModal('modalAddResposta')">×</button>
-    </div>
+    <div class="modal-header"><h3>Nova resposta rápida</h3><button class="btn-fechar" onclick="fecharModal('modalAddResp')">×</button></div>
     <div class="modal-body">
-      <div class="modal-field"><label>Texto da resposta</label><textarea id="novaResposta" placeholder="Ex: Olá! Que tema lindo você escolheu! 💜" rows="3"></textarea></div>
+      <div class="modal-field"><label>Texto</label><textarea id="novaResp" placeholder="Ex: Olá! Que tema lindo! 💜" rows="3"></textarea></div>
       <div class="modal-btns">
-        <button class="btn-modal-cancel" onclick="fecharModal('modalAddResposta')">Cancelar</button>
-        <button class="btn-modal-ok" onclick="salvarResposta()">Salvar</button>
+        <button class="btn-modal-cancel" onclick="fecharModal('modalAddResp')">Cancelar</button>
+        <button class="btn-modal-ok" onclick="salvarResp()">Salvar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal add tema -->
 <div class="modal-overlay hidden" id="modalAddTema">
   <div class="modal">
-    <div class="modal-header">
-      <h3>Adicionar tema</h3>
-      <button class="btn-fechar" onclick="fecharModal('modalAddTema')">×</button>
-    </div>
+    <div class="modal-header"><h3>Adicionar tema</h3><button class="btn-fechar" onclick="fecharModal('modalAddTema')">×</button></div>
     <div class="modal-body">
-      <div class="modal-field">
-        <label>Categoria</label>
+      <div class="modal-field"><label>Categoria</label>
         <select id="temaCat">
           <option value="infantil_menino">Aniversário Infantil Menino</option>
           <option value="infantil_menina">Aniversário Infantil Menina</option>
-          <option value="adulto_mulher">Aniversário Adulto Mulher</option>
-          <option value="adulto_homem">Aniversário Adulto Homem</option>
+          <option value="adulto_mulher">Adulto Mulher</option>
+          <option value="adulto_homem">Adulto Homem</option>
           <option value="casamento">Casamento</option>
           <option value="cha_bebe">Chá de Bebê</option>
           <option value="cha_revelacao">Chá Revelação</option>
@@ -795,31 +470,26 @@ button{cursor:pointer}
           <option value="outros">Outros</option>
         </select>
       </div>
-      <div class="modal-field"><label>Nome do tema</label><input type="text" id="temaNome" placeholder="Ex: Safari, Homem Aranha, Minnie..."></div>
-      <div class="modal-field"><label>Link do catálogo (do seu amigo)</label><input type="text" id="temaLink" placeholder="https://..."></div>
+      <div class="modal-field"><label>Nome do tema</label><input type="text" id="temaNome" placeholder="Ex: Safari, Homem Aranha..."></div>
+      <div class="modal-field"><label>Link do catálogo</label><input type="text" id="temaLink" placeholder="https://..."></div>
       <div class="modal-btns">
         <button class="btn-modal-cancel" onclick="fecharModal('modalAddTema')">Cancelar</button>
-        <button class="btn-modal-ok" onclick="salvarTema()">Salvar tema</button>
+        <button class="btn-modal-ok" onclick="salvarTema()">Salvar</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Modal add modelo PDF -->
 <div class="modal-overlay hidden" id="modalAddModelo">
   <div class="modal">
-    <div class="modal-header">
-      <h3>Adicionar modelo de teste</h3>
-      <button class="btn-fechar" onclick="fecharModal('modalAddModelo')">×</button>
-    </div>
+    <div class="modal-header"><h3>Adicionar modelo de teste</h3><button class="btn-fechar" onclick="fecharModal('modalAddModelo')">×</button></div>
     <div class="modal-body">
-      <div class="modal-field">
-        <label>Categoria</label>
-        <select id="modeloCat">
-          <option value="infantil_menino">Aniversário Infantil Menino</option>
-          <option value="infantil_menina">Aniversário Infantil Menina</option>
-          <option value="adulto_mulher">Aniversário Adulto Mulher</option>
-          <option value="adulto_homem">Aniversário Adulto Homem</option>
+      <div class="modal-field"><label>Categoria</label>
+        <select id="modCat">
+          <option value="infantil_menino">Infantil Menino</option>
+          <option value="infantil_menina">Infantil Menina</option>
+          <option value="adulto_mulher">Adulto Mulher</option>
+          <option value="adulto_homem">Adulto Homem</option>
           <option value="casamento">Casamento</option>
           <option value="cha_bebe">Chá de Bebê</option>
           <option value="cha_revelacao">Chá Revelação</option>
@@ -827,11 +497,11 @@ button{cursor:pointer}
           <option value="outros">Outros</option>
         </select>
       </div>
-      <div class="modal-field"><label>Nome do modelo</label><input type="text" id="modeloNome" placeholder="Ex: Modelo Safari Menino"></div>
-      <div class="modal-field"><label>Link da foto (como fica pronto)</label><input type="text" id="modeloFoto" placeholder="https://... (Google Drive, Imgur...)"></div>
-      <div class="modal-field"><label>Link do PDF de teste (Google Drive)</label><input type="text" id="modeloPdf" placeholder="https://drive.google.com/..."></div>
-      <div class="modal-field"><label>Link de segurança (abre no navegador)</label><input type="text" id="modeloSeguranca" placeholder="https://... (link do convite web)"></div>
-      <div class="modal-field"><label>Mensagem automática (vai junto)</label><textarea id="modeloMsg" placeholder="Ex: Esse é o modelo de teste 💜 Seu convite vai chegar assim no WhatsApp, personalizado com seus dados!" rows="3"></textarea></div>
+      <div class="modal-field"><label>Nome</label><input type="text" id="modNome" placeholder="Ex: Modelo Safari Menino"></div>
+      <div class="modal-field"><label>Link da foto (como fica pronto)</label><input type="text" id="modFoto" placeholder="https://..."></div>
+      <div class="modal-field"><label>Link do PDF de teste</label><input type="text" id="modPdf" placeholder="https://drive.google.com/..."></div>
+      <div class="modal-field"><label>Link de segurança (abre no navegador)</label><input type="text" id="modSeg" placeholder="https://..."></div>
+      <div class="modal-field"><label>Mensagem automática</label><textarea id="modMsg" placeholder="Ex: Esse é o modelo de teste 💜 Seu convite vai chegar assim!" rows="3"></textarea></div>
       <div class="modal-btns">
         <button class="btn-modal-cancel" onclick="fecharModal('modalAddModelo')">Cancelar</button>
         <button class="btn-modal-ok" onclick="salvarModelo()">Salvar</button>
@@ -840,52 +510,9 @@ button{cursor:pointer}
   </div>
 </div>
 
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- ============================================================
-     JAVASCRIPT
-     ============================================================ -->
 <script>
-// =================== ESTADO ===================
-let estado = {
-  config: {
-    empresa: 'Meus Convites',
-    nome: '',
-    boasVindas: 'Olá! Seja bem-vinda 💜 Como posso te ajudar hoje?',
-    usuario: 'admin',
-    senha: '1234',
-    wpp: '',
-    logo: null
-  },
-  clientes: {},
-  respostas: [
-    'Olá! Tudo bem? Como posso te ajudar? 😊',
-    'Qual é o tema do seu evento?',
-    'Já tenho o tema! Deixa eu te mostrar os modelos disponíveis 💜',
-    'Esse é um modelo de teste para você ter uma ideia de como fica pronto!',
-    'Para fecharmos o pedido, vou liberar o formulário para você preencher.',
-    'Recebemos seu pedido! Em breve entro em contato 💜'
-  ],
-  temas: {
-    infantil_menino: [{nome:'Safari', link:'#'},{nome:'Homem Aranha', link:'#'},{nome:'Sonic', link:'#'}],
-    infantil_menina: [{nome:'Princesas', link:'#'},{nome:'Minnie', link:'#'}],
-    casamento: [{nome:'Clássico Dourado', link:'#'},{nome:'Rústico', link:'#'}],
-    cha_bebe: [{nome:'Urso', link:'#'},{nome:'Borboleta', link:'#'}],
-    adulto_mulher: [],
-    adulto_homem: [],
-    cha_revelacao: [],
-    batizado: [],
-    outros: []
-  },
-  modelos: [],
-  cadastros: [],
-  clienteAtivo: null,
-  painelTab: 'rapidas',
-  adminLogado: false,
-  logoDataUrl: null
-};
-
 const CATS = {
   infantil_menino:'🚂 Infantil Menino',infantil_menina:'🌸 Infantil Menina',
   adulto_mulher:'💄 Adulto Mulher',adulto_homem:'🎩 Adulto Homem',
@@ -893,161 +520,137 @@ const CATS = {
   cha_revelacao:'🎀 Chá Revelação',batizado:'👼 Batizado',outros:'🎉 Outros'
 };
 
-// =================== STORAGE ===================
-function salvarEstado(){try{localStorage.setItem('sysColetes',JSON.stringify(estado))}catch(e){}}
-function carregarEstado(){
-  try{
-    const s=localStorage.getItem('sysColetes');
-    if(s){const d=JSON.parse(s);Object.assign(estado,d)}
-  }catch(e){}
-}
+let db, dbRef, dbPush, dbOnValue, dbSet, dbGet, dbUpdate;
+let cliAtivo = null;
+let pTab = 'rapidas';
+let cliListeners = {};
 
-// =================== INIT ===================
-carregarEstado();
-document.addEventListener('DOMContentLoaded',()=>{
-  const p=new URLSearchParams(window.location.search);
-  const cid=p.get('c');
-  const adm=p.get('adm');
-  if(cid){
-    iniciarTelaCliente(cid);
-  } else if(adm==='1'||estado.adminLogado){
-    if(estado.adminLogado){mostrarAdmin()}
-    else{mostrarLogin()}
+// Aguarda Firebase carregar
+function initApp() {
+  db = window._db;
+  const f = window._dbFns;
+  dbRef = f.ref; dbPush = f.push; dbOnValue = f.onValue;
+  dbSet = f.set; dbGet = f.get; dbUpdate = f.update;
+
+  const p = new URLSearchParams(window.location.search);
+  const cid = p.get('c');
+
+  if (cid) {
+    iniciarCliente(cid);
   } else {
-    mostrarLogin();
-  }
-});
-
-// =================== ROTEAMENTO ===================
-function mostrarLogin(){
-  document.getElementById('tela-login').classList.remove('hidden');
-  document.getElementById('tela-cliente').classList.add('hidden');
-  document.getElementById('tela-admin').classList.add('hidden');
-}
-function mostrarAdmin(){
-  document.getElementById('tela-admin').classList.remove('hidden');
-  document.getElementById('tela-login').classList.add('hidden');
-  document.getElementById('tela-cliente').classList.add('hidden');
-  atualizarHeaderAdmin();
-  renderizarClientes();
-  renderizarPainelDir();
-  renderizarCadastros();
-}
-function fazerLogin(){
-  const u=document.getElementById('loginUsuario').value.trim();
-  const s=document.getElementById('loginSenha').value;
-  if(u===estado.config.usuario&&s===estado.config.senha){
-    estado.adminLogado=true;salvarEstado();mostrarAdmin();
-  } else {
-    document.getElementById('loginErro').style.display='block';
-  }
-}
-
-// =================== CLIENTE ===================
-function iniciarTelaCliente(cid){
-  const cli=estado.clientes[cid];
-  if(!cli){
-    document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Nunito,sans-serif;color:#6b5e80;text-align:center;padding:2rem"><div><div style="font-size:48px;margin-bottom:12px">😕</div><p style="font-size:16px">Link inválido ou expirado.<br>Peça um novo link.</p></div></div>';
-    return;
-  }
-  document.getElementById('tela-cliente').classList.remove('hidden');
-  document.getElementById('clienteEmpresaNome').textContent=estado.config.empresa;
-  const sub=estado.config.nome?'Atendimento por '+estado.config.nome:'Atendimento personalizado';
-  document.getElementById('clienteEmpresaSub').textContent=sub;
-  if(estado.logoDataUrl){
-    const la=document.getElementById('clienteLogoArea');
-    la.innerHTML=`<img src="${estado.logoDataUrl}" alt="logo">`;
-  }
-  renderizarChatCliente(cid);
-  // Marca notificações como lidas
-  if(cli.notif>0){cli.notif=0;salvarEstado()}
-}
-
-function renderizarChatCliente(cid){
-  const cli=estado.clientes[cid];
-  const area=document.getElementById('clienteChatArea');
-  area.innerHTML='';
-  // Primeira mensagem de boas vindas
-  if(!cli.msgs||cli.msgs.length===0){
-    const agora=horaAgora();
-    const bv={de:'dono',texto:estado.config.boasVindas,hora:agora,tipo:'texto'};
-    if(!cli.msgs)cli.msgs=[];
-    cli.msgs.push(bv);
-    salvarEstado();
-  }
-  cli.msgs.forEach(m=>area.appendChild(criarBalaoCli(m,cid)));
-  area.scrollTop=area.scrollHeight;
-  // polling para novas mensagens
-  if(window._pollingCli)clearInterval(window._pollingCli);
-  window._pollingCli=setInterval(()=>{
-    const c2=estado.clientes[cid];
-    if(!c2)return;
-    const atual=area.querySelectorAll('.msg').length;
-    if(c2.msgs&&c2.msgs.length>atual){
-      area.innerHTML='';
-      c2.msgs.forEach(m=>area.appendChild(criarBalaoCli(m,cid)));
-      area.scrollTop=area.scrollHeight;
+    // Verificar se já está logado
+    const logado = sessionStorage.getItem('admLogado');
+    if (logado === '1') {
+      mostrarAdmin();
+    } else {
+      mostrarLogin();
     }
-  },800);
+  }
+  document.getElementById('loading').classList.add('hidden');
 }
 
-function criarBalaoCli(msg,cid){
-  const wrap=document.createElement('div');
-  wrap.className='msg '+(msg.de==='cliente'?'cliente':'dono');
-  if(msg.tipo==='modelo'){
-    const card=document.createElement('div');
-    card.className='msg-modelo';
-    card.innerHTML=`
-      ${msg.foto?`<img src="${msg.foto}" alt="modelo">`:''}
-      <div class="modelo-info">
-        <div class="modelo-titulo">📄 ${msg.nomeModelo||'Modelo de teste'}</div>
-        <div class="modelo-btns">
-          ${msg.pdf?`<a class="btn-pdf" href="${msg.pdf}" target="_blank">⬇️ Baixar PDF de teste</a>`:''}
-          ${msg.seguranca?`<a class="btn-link" href="${msg.seguranca}" target="_blank">🔗 Ver no navegador</a>`:''}
-        </div>
-      </div>`;
-    if(msg.mensagem){
-      const balao=document.createElement('div');balao.className='balao';balao.textContent=msg.mensagem;
-      const w2=document.createElement('div');w2.className='msg dono';
-      const h=document.createElement('div');h.className='hora';h.textContent=msg.hora;
-      w2.appendChild(balao);w2.appendChild(h);
+if (window._firebaseReady) {
+  initApp();
+} else {
+  document.addEventListener('firebaseReady', initApp);
+}
+
+// ===== CLIENTE =====
+function iniciarCliente(cid) {
+  dbGet(dbRef(db, 'clientes/' + cid)).then(snap => {
+    if (!snap.exists()) {
+      document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Nunito,sans-serif;color:#6b5e80;text-align:center;padding:2rem"><div><div style="font-size:48px;margin-bottom:12px">😕</div><p>Link inválido ou expirado.<br>Peça um novo link.</p></div></div>';
+      return;
+    }
+    document.getElementById('tela-cliente').classList.remove('hidden');
+
+    // Carregar config
+    dbGet(dbRef(db, 'config')).then(cs => {
+      const cfg = cs.exists() ? cs.val() : {};
+      document.getElementById('cliEmpresa').textContent = cfg.empresa || 'Meus Convites';
+      document.getElementById('cliSub').textContent = cfg.nome ? 'Atendimento por ' + cfg.nome : 'Atendimento personalizado';
+      if (cfg.logo) {
+        document.getElementById('cliLogo').innerHTML = '<img src="' + cfg.logo + '" alt="logo">';
+      }
+    });
+
+    // Escutar mensagens em tempo real
+    dbOnValue(dbRef(db, 'clientes/' + cid + '/msgs'), snap => {
+      const area = document.getElementById('cliChatArea');
+      const eraFundo = area.scrollTop + area.clientHeight >= area.scrollHeight - 40;
+      area.innerHTML = '';
+      if (snap.exists()) {
+        const msgs = snap.val();
+        Object.values(msgs).sort((a,b) => a.ts - b.ts).forEach(m => {
+          area.appendChild(criarBalaoCli(m, cid));
+        });
+      }
+      if (eraFundo) area.scrollTop = area.scrollHeight;
+    });
+
+    // Zerar notif
+    dbUpdate(dbRef(db, 'clientes/' + cid), { notif: 0 });
+  });
+}
+
+function criarBalaoCli(msg, cid) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + (msg.de === 'cliente' ? 'cliente-msg' : 'dono');
+
+  if (msg.tipo === 'modelo') {
+    const card = document.createElement('div');
+    card.className = 'msg-modelo';
+    card.innerHTML = (msg.foto ? '<img src="' + msg.foto + '" alt="modelo">' : '') +
+      '<div class="modelo-info"><div class="modelo-titulo">📄 ' + (msg.nomeModelo || 'Modelo de teste') + '</div>' +
+      '<div class="modelo-btns">' +
+      (msg.pdf ? '<a class="btn-pdf" href="' + msg.pdf + '" target="_blank">⬇️ Baixar PDF de teste</a>' : '') +
+      (msg.seguranca ? '<a class="btn-link" href="' + msg.seguranca + '" target="_blank">🔗 Ver no navegador</a>' : '') +
+      '</div></div>';
+    if (msg.mensagem) {
+      const m2 = document.createElement('div');
+      m2.className = 'msg dono';
+      const b2 = document.createElement('div'); b2.className = 'balao'; b2.textContent = msg.mensagem;
+      const h2 = document.createElement('div'); h2.className = 'hora'; h2.textContent = msg.hora || '';
+      m2.appendChild(b2); m2.appendChild(h2);
       wrap.appendChild(card);
-      document.getElementById('clienteChatArea')?.appendChild(w2);
+      document.getElementById('cliChatArea').appendChild(m2);
+      return wrap;
     }
-  } else if(msg.tipo==='tema'){
-    const card=document.createElement('div');
-    card.className='msg-tema';
-    card.innerHTML=`
-      <div class="tema-label">Tema do catálogo</div>
-      <div class="tema-nome">${msg.temaNome}</div>
-      <a href="${msg.temaLink}" target="_blank">🎨 Ver modelos e preços</a>`;
     wrap.appendChild(card);
-  } else if(msg.tipo==='formulario'){
-    const card=document.createElement('div');
-    card.className='msg-form';
-    const campos=getFormCampos(msg.formTipo);
-    card.innerHTML=`
-      <h4>📝 Dados do evento</h4>
-      <p>Preencha as informações abaixo</p>
-      ${campos.map(c=>`
-        <div class="form-field">
-          <label>${c.label}</label>
-          ${c.tipo==='textarea'?`<textarea id="frmCli_${c.id}" placeholder="${c.ph}"></textarea>`:`<input type="${c.tipo||'text'}" id="frmCli_${c.id}" placeholder="${c.ph}">`}
-        </div>`).join('')}
-      <button class="btn-enviar-form" onclick="enviarFormulario('${cid}','${msg.formTipo}')">Enviar informações</button>`;
-    if(msg.respondido){card.style.opacity='0.6';card.querySelectorAll('input,textarea,button').forEach(el=>el.disabled=true)}
+  } else if (msg.tipo === 'tema') {
+    const card = document.createElement('div');
+    card.className = 'msg-tema';
+    card.innerHTML = '<div class="tema-label">Tema do catálogo</div><div class="tema-nome">' + msg.temaNome + '</div><a href="' + msg.temaLink + '" target="_blank">🎨 Ver modelos e preços</a>';
     wrap.appendChild(card);
+  } else if (msg.tipo === 'formulario') {
+    if (!msg.respondido) {
+      const card = document.createElement('div');
+      card.className = 'msg-form';
+      const campos = getFormCampos(msg.formTipo);
+      const fid = 'f' + msg.ts;
+      card.innerHTML = '<h4>📝 Dados do evento</h4><p>Preencha as informações abaixo</p>' +
+        campos.map(c => '<div class="form-field"><label>' + c.label + '</label>' +
+          (c.tipo === 'textarea' ? '<textarea id="' + fid + c.id + '" placeholder="' + c.ph + '"></textarea>' :
+          '<input type="' + (c.tipo || 'text') + '" id="' + fid + c.id + '" placeholder="' + c.ph + '">') +
+          '</div>').join('') +
+        '<button class="btn-enviar-form" onclick="enviarForm(\'' + cid + '\',\'' + msg.formTipo + '\',\'' + fid + '\',' + msg.ts + ')">Enviar informações</button>';
+      wrap.appendChild(card);
+    } else {
+      const b = document.createElement('div'); b.className = 'balao'; b.textContent = '✅ Formulário enviado!';
+      wrap.appendChild(b);
+    }
   } else {
-    const balao=document.createElement('div');balao.className='balao';balao.textContent=msg.texto||'';
-    wrap.appendChild(balao);
+    const b = document.createElement('div'); b.className = 'balao'; b.textContent = msg.texto || '';
+    wrap.appendChild(b);
   }
-  const h=document.createElement('div');h.className='hora';h.textContent=msg.hora||'';
+
+  const h = document.createElement('div'); h.className = 'hora'; h.textContent = msg.hora || '';
   wrap.appendChild(h);
   return wrap;
 }
 
-function getFormCampos(tipo){
-  const base=[
+function getFormCampos(tipo) {
+  const base = [
     {id:'nome',label:'Nome completo',ph:'Seu nome'},
     {id:'wpp',label:'WhatsApp',ph:'Seu WhatsApp com DDD'},
     {id:'data',label:'Data do evento',tipo:'date',ph:''},
@@ -1055,445 +658,462 @@ function getFormCampos(tipo){
     {id:'local',label:'Local do evento',ph:'Nome do salão, endereço...'},
     {id:'obs',label:'Observações',tipo:'textarea',ph:'Informações adicionais...'}
   ];
-  if(tipo==='casamento'){
-    return [{id:'noivo',label:'Nome do noivo',ph:'Nome completo'},{id:'noiva',label:'Nome da noiva',ph:'Nome completo'},...base];
-  }
-  if(tipo==='cha_bebe'||tipo==='cha_revelacao'){
-    return [{id:'mae',label:'Nome da mamãe',ph:'Nome completo'},{id:'pai',label:'Nome do papai',ph:'Nome completo'},{id:'bebe',label:'Nome do bebê (se souber)',ph:'Opcional'},...base];
-  }
-  if(tipo==='batizado'){
-    return [{id:'bebe',label:'Nome do bebê',ph:'Nome completo'},...base];
-  }
+  if (tipo === 'casamento') return [{id:'noivo',label:'Nome do noivo',ph:'Nome completo'},{id:'noiva',label:'Nome da noiva',ph:'Nome completo'},...base];
+  if (tipo === 'cha_bebe' || tipo === 'cha_revelacao') return [{id:'mae',label:'Nome da mamãe',ph:'Nome completo'},{id:'pai',label:'Nome do papai',ph:'Nome completo'},{id:'bebe',label:'Nome do bebê',ph:'Opcional'},...base];
+  if (tipo === 'batizado') return [{id:'bebe',label:'Nome do bebê',ph:'Nome completo'},...base];
   return [{id:'homenageado',label:'Nome do homenageado',ph:'Nome completo'},...base];
 }
 
-function enviarFormulario(cid,tipo){
-  const campos=getFormCampos(tipo);
-  const dados={};
-  campos.forEach(c=>{
-    const el=document.getElementById('frmCli_'+c.id);
-    if(el)dados[c.label]=el.value;
+function enviarForm(cid, tipo, fid, ts) {
+  const campos = getFormCampos(tipo);
+  const dados = {};
+  campos.forEach(c => { const el = document.getElementById(fid + c.id); if (el) dados[c.label] = el.value; });
+  const resumo = Object.entries(dados).map(([k,v]) => k + ': ' + v).join('\n');
+
+  // Marcar form como respondido
+  dbGet(dbRef(db, 'clientes/' + cid + '/msgs')).then(snap => {
+    if (snap.exists()) {
+      const msgs = snap.val();
+      Object.entries(msgs).forEach(([k, m]) => {
+        if (m.ts === ts && m.tipo === 'formulario') {
+          dbUpdate(dbRef(db, 'clientes/' + cid + '/msgs/' + k), { respondido: true });
+        }
+      });
+    }
   });
-  const resumo=Object.entries(dados).map(([k,v])=>`${k}: ${v}`).join('\n');
-  const cli=estado.clientes[cid];
-  // Marca form como respondido
-  const formMsg=cli.msgs.find(m=>m.tipo==='formulario'&&m.formTipo===tipo&&!m.respondido);
-  if(formMsg)formMsg.respondido=true;
-  // Adiciona resumo como mensagem do cliente
-  cli.msgs.push({de:'cliente',tipo:'texto',texto:'📝 Formulário preenchido:\n'+resumo,hora:horaAgora()});
-  cli.notif=(cli.notif||0)+1;
-  salvarEstado();
-  renderizarChatCliente(cid);
+
+  // Enviar resposta
+  const msgKey = dbPush(dbRef(db, 'clientes/' + cid + '/msgs'));
+  dbSet(msgKey, { de:'cliente', tipo:'texto', texto:'📝 Formulário preenchido:\n' + resumo, hora: horaAgora(), ts: Date.now() });
+  dbUpdate(dbRef(db, 'clientes/' + cid), { notif: Date.now() });
+  toast('Formulário enviado! ✅');
 }
 
-function clienteEnviar(){
-  const input=document.getElementById('clienteInput');
-  const txt=input.value.trim();
-  if(!txt)return;
-  const p=new URLSearchParams(window.location.search);
-  const cid=p.get('c');
-  const cli=estado.clientes[cid];
-  if(!cli)return;
-  cli.msgs.push({de:'cliente',tipo:'texto',texto:txt,hora:horaAgora()});
-  cli.notif=(cli.notif||0)+1;
-  salvarEstado();
-  input.value='';input.style.height='auto';
-  renderizarChatCliente(cid);
+function cliEnviar() {
+  const inp = document.getElementById('cliInput');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  const p = new URLSearchParams(window.location.search);
+  const cid = p.get('c');
+  if (!cid) return;
+  const msgKey = dbPush(dbRef(db, 'clientes/' + cid + '/msgs'));
+  dbSet(msgKey, { de:'cliente', tipo:'texto', texto: txt, hora: horaAgora(), ts: Date.now() });
+  dbUpdate(dbRef(db, 'clientes/' + cid), { notif: Date.now() });
+  inp.value = ''; inp.style.height = 'auto';
 }
 
-// =================== ADMIN ===================
-function atualizarHeaderAdmin(){
-  document.getElementById('adminEmpresaNome').textContent=estado.config.empresa;
-  if(estado.logoDataUrl){
-    document.getElementById('adminLogoArea').innerHTML=`<img src="${estado.logoDataUrl}" alt="">`;
-  }
+// ===== LOGIN =====
+function mostrarLogin() {
+  document.getElementById('tela-login').classList.remove('hidden');
+  document.getElementById('loading').classList.add('hidden');
+}
+function mostrarAdmin() {
+  document.getElementById('tela-admin').classList.remove('hidden');
+  document.getElementById('loading').classList.add('hidden');
+  carregarConfig();
+  escutarClientes();
+  renderPainel();
 }
 
-function renderizarClientes(filtro){
-  const lista=document.getElementById('clientesLista');
-  lista.innerHTML='';
-  const ids=Object.keys(estado.clientes);
-  if(ids.length===0){lista.innerHTML='<div class="vazio">Nenhum cliente ainda.<br>Clique em + Novo cliente</div>';return}
-  ids.filter(id=>{
-    if(!filtro)return true;
-    return estado.clientes[id].nome.toLowerCase().includes(filtro.toLowerCase());
-  }).reverse().forEach(id=>{
-    const cli=estado.clientes[id];
-    const item=document.createElement('div');
-    item.className='cliente-item'+(estado.clienteAtivo===id?' ativo':'');
-    const ult=cli.msgs&&cli.msgs.length>0?cli.msgs[cli.msgs.length-1].texto||'(mídia)':'Nenhuma mensagem';
-    const avatarL=cli.nome.charAt(0).toUpperCase();
-    item.innerHTML=`
-      <div class="avatar">${avatarL}</div>
-      <div class="info">
-        <div class="nome">${cli.nome}</div>
-        <div class="ultima">${ult.substring(0,40)}</div>
-      </div>
-      <div class="right">
-        <div class="hora-msg">${cli.horaCriacao||''}</div>
-        ${(cli.notif>0)?`<div class="notif">${cli.notif}</div>`:''}
-      </div>`;
-    item.onclick=()=>selecionarCliente(id);
+function fazerLogin() {
+  const u = document.getElementById('loginU').value.trim();
+  const s = document.getElementById('loginS').value;
+  dbGet(dbRef(db, 'config/acesso')).then(snap => {
+    const acesso = snap.exists() ? snap.val() : { usuario: 'admin', senha: '1234' };
+    if (u === acesso.usuario && s === acesso.senha) {
+      sessionStorage.setItem('admLogado', '1');
+      document.getElementById('tela-login').classList.add('hidden');
+      mostrarAdmin();
+    } else {
+      document.getElementById('loginErro').style.display = 'block';
+    }
+  });
+}
+
+// ===== ADMIN =====
+function carregarConfig() {
+  dbGet(dbRef(db, 'config')).then(snap => {
+    if (!snap.exists()) return;
+    const c = snap.val();
+    document.getElementById('admEmpresa').textContent = c.empresa || 'Meu Sistema';
+    document.getElementById('cfgEmpresa').value = c.empresa || '';
+    document.getElementById('cfgNome').value = c.nome || '';
+    document.getElementById('cfgBV').value = c.boasVindas || '';
+    document.getElementById('cfgWpp').value = c.wpp || '';
+    if (c.acesso) {
+      document.getElementById('cfgUser').value = c.acesso.usuario || '';
+    }
+    if (c.logo) {
+      document.getElementById('admLogo').innerHTML = '<img src="' + c.logo + '" alt="">';
+      document.getElementById('cfgLogoIcon').style.display = 'none';
+      document.getElementById('cfgLogoImg').src = c.logo;
+      document.getElementById('cfgLogoImg').style.display = 'block';
+    }
+  });
+}
+
+function salvarConfig() {
+  const cfg = {
+    empresa: document.getElementById('cfgEmpresa').value || 'Meus Convites',
+    nome: document.getElementById('cfgNome').value,
+    boasVindas: document.getElementById('cfgBV').value || 'Olá! Seja bem-vinda 💜 Como posso te ajudar hoje?',
+    wpp: document.getElementById('cfgWpp').value,
+    acesso: {
+      usuario: document.getElementById('cfgUser').value || 'admin',
+      senha: document.getElementById('cfgSenha').value || '1234'
+    }
+  };
+  if (window._logoDataUrl) cfg.logo = window._logoDataUrl;
+  dbSet(dbRef(db, 'config'), cfg).then(() => {
+    toast('Configurações salvas! 💜');
+    carregarConfig();
+  });
+}
+
+function handleLogo(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    window._logoDataUrl = ev.target.result;
+    document.getElementById('cfgLogoIcon').style.display = 'none';
+    document.getElementById('cfgLogoImg').src = ev.target.result;
+    document.getElementById('cfgLogoImg').style.display = 'block';
+  };
+  r.readAsDataURL(file);
+}
+
+// Escutar clientes em tempo real
+function escutarClientes() {
+  dbOnValue(dbRef(db, 'clientes'), snap => {
+    renderClis(snap.exists() ? snap.val() : {});
+  });
+}
+
+function renderClis(clientes, filtro) {
+  const lista = document.getElementById('cliLista');
+  lista.innerHTML = '';
+  const ids = Object.keys(clientes || {});
+  if (ids.length === 0) { lista.innerHTML = '<div class="vazio">Nenhum cliente ainda.<br>Clique em + Novo cliente</div>'; return; }
+  ids.filter(id => !filtro || clientes[id].nome.toLowerCase().includes(filtro.toLowerCase()))
+    .reverse().forEach(id => {
+    const cli = clientes[id];
+    const item = document.createElement('div');
+    item.className = 'cliente-item' + (cliAtivo === id ? ' ativo' : '');
+    const msgs = cli.msgs ? Object.values(cli.msgs) : [];
+    const ult = msgs.length > 0 ? (msgs[msgs.length-1].texto || '(mídia)') : 'Nenhuma mensagem';
+    item.innerHTML = '<div class="avatar">' + (cli.nome||'?').charAt(0).toUpperCase() + '</div>' +
+      '<div class="info"><div class="nome">' + cli.nome + '</div><div class="ultima">' + ult.substring(0,35) + '</div></div>' +
+      '<div class="right"><div class="hora-msg">' + (cli.horaCriacao||'') + '</div>' +
+      (cli.notif ? '<div class="notif">!</div>' : '') + '</div>';
+    item.onclick = () => selecionarCli(id, cli);
     lista.appendChild(item);
   });
 }
 
-function selecionarCliente(id){
-  estado.clienteAtivo=id;
-  const cli=estado.clientes[id];
-  cli.notif=0;salvarEstado();
-  document.getElementById('semCliente').style.display='none';
-  const chatAtivo=document.getElementById('chatAtivo');
-  chatAtivo.style.display='flex';chatAtivo.classList.remove('hidden');
-  document.getElementById('topbarAvatar').textContent=cli.nome.charAt(0).toUpperCase();
-  document.getElementById('topbarNome').textContent=cli.nome;
-  document.getElementById('topbarStatus').textContent=cli.tel||'';
-  renderizarChatAdmin(id);
-  renderizarClientes();
-  // fechar sidebar no mobile
+function filtrarClis(v) {
+  dbGet(dbRef(db, 'clientes')).then(snap => renderClis(snap.exists() ? snap.val() : {}, v));
+}
+
+function selecionarCli(id, cli) {
+  cliAtivo = id;
+  dbUpdate(dbRef(db, 'clientes/' + id), { notif: 0 });
+  document.getElementById('semCli').style.display = 'none';
+  const ca = document.getElementById('chatAtivo');
+  ca.style.display = 'flex'; ca.classList.remove('hidden');
+  document.getElementById('topAvatar').textContent = (cli.nome||'?').charAt(0).toUpperCase();
+  document.getElementById('topNome').textContent = cli.nome;
+  document.getElementById('topStatus').textContent = cli.tel || 'Em atendimento';
   document.getElementById('sidebar').classList.remove('aberta');
-  // polling admin
-  if(window._pollingAdmin)clearInterval(window._pollingAdmin);
-  window._pollingAdmin=setInterval(()=>{
-    if(estado.clienteAtivo!==id)return;
-    const area=document.getElementById('adminChatMsgs');
-    if(!area)return;
-    const c2=estado.clientes[id];
-    if(c2&&c2.msgs){
-      const atual=area.querySelectorAll('.msg').length;
-      if(c2.msgs.length>atual){
-        c2.notif=0;salvarEstado();
-        renderizarChatAdmin(id);
-        renderizarClientes();
-      }
+
+  // Escutar mensagens em tempo real
+  if (window._cliMsgListener) window._cliMsgListener();
+  window._cliMsgListener = dbOnValue(dbRef(db, 'clientes/' + id + '/msgs'), snap => {
+    const area = document.getElementById('admChat');
+    const eraFundo = area.scrollTop + area.clientHeight >= area.scrollHeight - 40;
+    area.innerHTML = '';
+    if (snap.exists()) {
+      Object.values(snap.val()).sort((a,b) => a.ts - b.ts).forEach(m => area.appendChild(criarBalaoAdm(m)));
     }
-  },800);
+    if (eraFundo) area.scrollTop = area.scrollHeight;
+  });
 }
 
-function renderizarChatAdmin(id){
-  const cli=estado.clientes[id];
-  const area=document.getElementById('adminChatMsgs');
-  area.innerHTML='';
-  if(cli.msgs){
-    cli.msgs.forEach(m=>area.appendChild(criarBalaoAdmin(m)));
-  }
-  area.scrollTop=area.scrollHeight;
-}
-
-function criarBalaoAdmin(msg){
-  const wrap=document.createElement('div');
-  wrap.className='msg '+(msg.de==='cliente'?'dono':'cliente');
-  if(msg.tipo==='modelo'){
-    const card=document.createElement('div');
-    card.className='msg-modelo';
-    card.innerHTML=`
-      ${msg.foto?`<img src="${msg.foto}" alt="modelo">`:''}
-      <div class="modelo-info">
-        <div class="modelo-titulo">📄 ${msg.nomeModelo||'Modelo de teste'}</div>
-        <div class="modelo-btns">
-          ${msg.pdf?`<a class="btn-pdf" href="${msg.pdf}" target="_blank">⬇️ Baixar PDF</a>`:''}
-          ${msg.seguranca?`<a class="btn-link" href="${msg.seguranca}" target="_blank">🔗 Link de segurança</a>`:''}
-        </div>
-      </div>`;
+function criarBalaoAdm(msg) {
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + (msg.de === 'cliente' ? 'dono' : 'cliente-msg');
+  if (msg.tipo === 'modelo') {
+    const card = document.createElement('div'); card.className = 'msg-modelo';
+    card.innerHTML = (msg.foto ? '<img src="' + msg.foto + '" alt="">' : '') +
+      '<div class="modelo-info"><div class="modelo-titulo">📄 ' + (msg.nomeModelo||'Modelo') + '</div>' +
+      '<div class="modelo-btns">' +
+      (msg.pdf ? '<a class="btn-pdf" href="' + msg.pdf + '" target="_blank">PDF</a>' : '') +
+      (msg.seguranca ? '<a class="btn-link" href="' + msg.seguranca + '" target="_blank">Link</a>' : '') +
+      '</div></div>';
     wrap.appendChild(card);
-  } else if(msg.tipo==='tema'){
-    const card=document.createElement('div');card.className='msg-tema';
-    card.innerHTML=`<div class="tema-label">Tema enviado</div><div class="tema-nome">${msg.temaNome}</div><a href="${msg.temaLink}" target="_blank">🎨 Ver catálogo</a>`;
+  } else if (msg.tipo === 'tema') {
+    const card = document.createElement('div'); card.className = 'msg-tema';
+    card.innerHTML = '<div class="tema-label">Tema enviado</div><div class="tema-nome">' + msg.temaNome + '</div><a href="' + msg.temaLink + '" target="_blank">Ver catálogo</a>';
     wrap.appendChild(card);
-  } else if(msg.tipo==='formulario'){
-    const balao=document.createElement('div');balao.className='balao';
-    balao.textContent='📝 Formulário liberado: '+msg.formTipo;
-    wrap.appendChild(balao);
+  } else if (msg.tipo === 'formulario') {
+    const b = document.createElement('div'); b.className = 'balao';
+    b.textContent = '📝 Formulário liberado: ' + (msg.formTipo||'');
+    wrap.appendChild(b);
   } else {
-    const balao=document.createElement('div');balao.className='balao';balao.textContent=msg.texto||'';
-    wrap.appendChild(balao);
+    const b = document.createElement('div'); b.className = 'balao';
+    b.textContent = msg.texto || '';
+    wrap.appendChild(b);
   }
-  const h=document.createElement('div');h.className='hora';h.textContent=msg.hora||'';
+  const h = document.createElement('div'); h.className = 'hora'; h.textContent = msg.hora || '';
   wrap.appendChild(h);
   return wrap;
 }
 
-function adminEnviar(){
-  const input=document.getElementById('adminInput');
-  const txt=input.value.trim();
-  if(!txt||!estado.clienteAtivo)return;
-  const cli=estado.clientes[estado.clienteAtivo];
-  cli.msgs.push({de:'dono',tipo:'texto',texto:txt,hora:horaAgora()});
-  salvarEstado();input.value='';input.style.height='auto';
-  renderizarChatAdmin(estado.clienteAtivo);
+function admEnviar() {
+  const inp = document.getElementById('admInput');
+  const txt = inp.value.trim();
+  if (!txt || !cliAtivo) return;
+  const msgKey = dbPush(dbRef(db, 'clientes/' + cliAtivo + '/msgs'));
+  dbSet(msgKey, { de:'dono', tipo:'texto', texto: txt, hora: horaAgora(), ts: Date.now() });
+  inp.value = ''; inp.style.height = 'auto';
 }
 
-function copiarLinkCliente(){
-  if(!estado.clienteAtivo)return;
-  const base=window.location.href.split('?')[0];
-  const link=base+'?c='+estado.clienteAtivo;
-  navigator.clipboard.writeText(link).then(()=>mostrarToast('Link copiado! Cole no WhatsApp 📋'));
+function copiarLink() {
+  if (!cliAtivo) return;
+  const link = 'https://melrienerodrigues388-ctrl.github.io/sistema-atendimento/sistema.html?c=' + cliAtivo;
+  navigator.clipboard.writeText(link).then(() => toast('Link copiado! Cole no WhatsApp 📋'));
 }
 
-function abrirWhatsApp(){
-  if(!estado.clienteAtivo)return;
-  const cli=estado.clientes[estado.clienteAtivo];
-  if(!cli.tel){mostrarToast('Nenhum número cadastrado');return}
-  const base=window.location.href.split('?')[0];
-  const link=base+'?c='+estado.clienteAtivo;
-  const msg=encodeURIComponent('Olá '+cli.nome+'! Acesse esse link para conversarmos: '+link);
-  window.open('https://api.whatsapp.com/send?phone='+cli.tel.replace(/\D/g,'')+'&text='+msg,'_blank');
-}
-
-function marcarPago(){
-  if(!estado.clienteAtivo)return;
-  const cli=estado.clientes[estado.clienteAtivo];
-  cli.pago=true;
-  const cadastro={
-    id:estado.clienteAtivo,nome:cli.nome,tel:cli.tel,
-    dataPagamento:new Date().toLocaleDateString('pt-BR'),
-    historico:cli.msgs?cli.msgs.length+' mensagens':''
-  };
-  const existente=estado.cadastros.findIndex(c=>c.id===estado.clienteAtivo);
-  if(existente>=0)estado.cadastros[existente]=cadastro;
-  else estado.cadastros.push(cadastro);
-  salvarEstado();
-  // Enviar resumo pro WhatsApp
-  if(estado.config.wpp){
-    const msg=`✅ PEDIDO FECHADO\n\nCliente: ${cli.nome}\nTelefone: ${cli.tel||'—'}\nData: ${new Date().toLocaleDateString('pt-BR')}`;
-    window.open('https://api.whatsapp.com/send?phone='+estado.config.wpp.replace(/\D/g,'')+'&text='+encodeURIComponent(msg),'_blank');
-  }
-  mostrarToast('✅ Cliente marcado como pago e salvo no cadastro!');
-  renderizarClientes();
-  renderizarCadastros();
-}
-
-// =================== PAINEL DIREITO ===================
-function mudarPainelTab(tab){
-  estado.painelTab=tab;
-  document.querySelectorAll('.painel-tab').forEach((t,i)=>{
-    t.classList.toggle('ativo',['rapidas','temas','modelos','forms'][i]===tab);
-  });
-  renderizarPainelDir();
-}
-
-function renderizarPainelDir(){
-  const el=document.getElementById('painelConteudo');
-  if(!el)return;
-  el.innerHTML='';
-  const tab=estado.painelTab;
-  if(tab==='rapidas'){
-    const titulo=document.createElement('div');titulo.className='secao-titulo';titulo.textContent='Respostas rápidas';el.appendChild(titulo);
-    estado.respostas.forEach((r,i)=>{
-      const item=document.createElement('div');item.className='resp-item';item.textContent=r;
-      item.onclick=()=>{
-        const inp=document.getElementById('adminInput');
-        if(inp){inp.value=r;inp.focus()}
-      };
-      el.appendChild(item);
-    });
-    const btn=document.createElement('button');btn.className='btn-add-pequeno';btn.textContent='+ Adicionar resposta';
-    btn.onclick=()=>abrirModal('modalAddResposta');el.appendChild(btn);
-  } else if(tab==='temas'){
-    const titulo=document.createElement('div');titulo.className='secao-titulo';titulo.textContent='Enviar tema ao cliente';el.appendChild(titulo);
-    Object.entries(estado.temas).forEach(([cat,temas])=>{
-      if(!temas||temas.length===0)return;
-      const bloco=document.createElement('div');bloco.className='categoria-bloco';
-      const nome=document.createElement('div');nome.className='categoria-nome';nome.textContent=CATS[cat]||cat;bloco.appendChild(nome);
-      temas.forEach(t=>{
-        const item=document.createElement('div');item.className='tema-subitem';
-        item.innerHTML=`<span class="tema-texto">${t.nome}</span>`;
-        const btn=document.createElement('button');btn.className='btn-mostrar';btn.textContent='Mostrar';
-        btn.onclick=()=>enviarTema(t);item.appendChild(btn);bloco.appendChild(item);
-      });
-      el.appendChild(bloco);
-    });
-    const btn=document.createElement('button');btn.className='btn-add-pequeno';btn.textContent='+ Adicionar tema';
-    btn.onclick=()=>abrirModal('modalAddTema');el.appendChild(btn);
-  } else if(tab==='modelos'){
-    const titulo=document.createElement('div');titulo.className='secao-titulo';titulo.textContent='Modelos de teste';el.appendChild(titulo);
-    if(estado.modelos.length===0){
-      const v=document.createElement('div');v.className='vazio';v.textContent='Nenhum modelo cadastrado ainda.';el.appendChild(v);
-    }
-    estado.modelos.forEach(m=>{
-      const card=document.createElement('div');card.className='modelo-card-mini';
-      card.innerHTML=`<div class="nome">${m.nome}</div><div class="cat">${CATS[m.cat]||m.cat}</div>`;
-      const btn=document.createElement('button');btn.className='btn-enviar-modelo';btn.textContent='Enviar para cliente';
-      btn.onclick=()=>enviarModelo(m);card.appendChild(btn);el.appendChild(card);
-    });
-    const btn=document.createElement('button');btn.className='btn-add-pequeno';btn.textContent='+ Adicionar modelo';
-    btn.onclick=()=>abrirModal('modalAddModelo');el.appendChild(btn);
-  } else if(tab==='forms'){
-    const titulo=document.createElement('div');titulo.className='secao-titulo';titulo.textContent='Liberar formulário';el.appendChild(titulo);
-    [['casamento','💍','Casamento'],['cha_bebe','🍼','Chá de Bebê'],['cha_revelacao','🎀','Chá Revelação'],['batizado','👼','Batizado'],['aniversario','🎂','Aniversário']]
-    .forEach(([tipo,emoji,label])=>{
-      const btn=document.createElement('button');btn.className='form-tipo-btn';
-      btn.innerHTML=`<span>${emoji}</span>${label}`;
-      btn.onclick=()=>liberarFormulario(tipo);el.appendChild(btn);
-    });
-  }
-}
-
-function enviarTema(tema){
-  if(!estado.clienteAtivo){mostrarToast('Selecione um cliente primeiro');return}
-  const cli=estado.clientes[estado.clienteAtivo];
-  cli.msgs.push({de:'dono',tipo:'tema',temaNome:tema.nome,temaLink:tema.link,hora:horaAgora()});
-  salvarEstado();renderizarChatAdmin(estado.clienteAtivo);
-  mostrarToast('Tema enviado: '+tema.nome);
-}
-
-function enviarModelo(m){
-  if(!estado.clienteAtivo){mostrarToast('Selecione um cliente primeiro');return}
-  const cli=estado.clientes[estado.clienteAtivo];
-  cli.msgs.push({de:'dono',tipo:'modelo',nomeModelo:m.nome,foto:m.foto,pdf:m.pdf,seguranca:m.seguranca,mensagem:m.msg,hora:horaAgora()});
-  salvarEstado();renderizarChatAdmin(estado.clienteAtivo);
-  mostrarToast('Modelo enviado!');
-}
-
-function liberarFormulario(tipo){
-  if(!estado.clienteAtivo){mostrarToast('Selecione um cliente primeiro');return}
-  const cli=estado.clientes[estado.clienteAtivo];
-  cli.msgs.push({de:'dono',tipo:'formulario',formTipo:tipo,hora:horaAgora()});
-  salvarEstado();renderizarChatAdmin(estado.clienteAtivo);
-  mostrarToast('Formulário liberado para o cliente!');
-}
-
-// =================== CRIAR CLIENTE ===================
-function criarCliente(){
-  const nome=document.getElementById('novoClienteNome').value.trim();
-  const tel=document.getElementById('novoClienteTel').value.trim();
-  if(!nome){mostrarToast('Digite o nome do cliente');return}
-  const id='c'+Date.now();
-  estado.clientes[id]={
-    id,nome,tel,msgs:[],notif:0,pago:false,
-    horaCriacao:new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})
-  };
-  // Mensagem de boas vindas automática
-  estado.clientes[id].msgs.push({de:'dono',tipo:'texto',texto:estado.config.boasVindas,hora:horaAgora()});
-  salvarEstado();fecharModal('modalNovoCliente');
-  document.getElementById('novoClienteNome').value='';
-  document.getElementById('novoClienteTel').value='';
-  renderizarClientes();
-  selecionarCliente(id);
-  // Mostra o link
-  const base=window.location.href.split('?')[0];
-  const link=base+'?c='+id;
-  setTimeout(()=>{
-    mostrarToast('Cliente criado! Copie o link e mande no WhatsApp 📋');
-  },300);
-}
-
-// =================== CONFIG ===================
-function salvarConfig(){
-  estado.config.empresa=document.getElementById('cfgEmpresa').value||estado.config.empresa;
-  estado.config.nome=document.getElementById('cfgNome').value;
-  estado.config.boasVindas=document.getElementById('cfgBoasVindas').value||estado.config.boasVindas;
-  if(document.getElementById('cfgUsuario').value)estado.config.usuario=document.getElementById('cfgUsuario').value;
-  if(document.getElementById('cfgSenha').value)estado.config.senha=document.getElementById('cfgSenha').value;
-  estado.config.wpp=document.getElementById('cfgWpp').value;
-  salvarEstado();atualizarHeaderAdmin();mostrarToast('Configurações salvas! 💜');
-}
-function handleLogoUpload(e){
-  const file=e.target.files[0];if(!file)return;
-  const r=new FileReader();
-  r.onload=ev=>{
-    estado.logoDataUrl=ev.target.result;
-    document.getElementById('configLogoIcon').style.display='none';
-    document.getElementById('configLogoImg').src=ev.target.result;
-    document.getElementById('configLogoImg').style.display='block';
-    salvarEstado();atualizarHeaderAdmin();
-  };r.readAsDataURL(file);
-}
-
-// =================== CADASTROS ===================
-function renderizarCadastros(){
-  const lista=document.getElementById('cadastrosLista');
-  const total=document.getElementById('totalCadastros');
-  if(!lista)return;
-  if(estado.cadastros.length===0){lista.innerHTML='<div class="vazio">Nenhum cliente marcado como pago ainda.</div>';total.textContent='0 clientes';return}
-  total.textContent=estado.cadastros.length+' clientes';
-  lista.innerHTML='';
-  [...estado.cadastros].reverse().forEach(c=>{
-    const card=document.createElement('div');card.className='cadastro-card';
-    card.innerHTML=`
-      <div class="cad-nome">${c.nome}</div>
-      <div class="cad-info">${c.tel||'—'} · Pago em ${c.dataPagamento}</div>
-      <div class="cad-tags"><span class="badge badge-pago">✅ Pago</span></div>`;
-    lista.appendChild(card);
+function abrirWpp() {
+  if (!cliAtivo) return;
+  dbGet(dbRef(db, 'clientes/' + cliAtivo)).then(snap => {
+    if (!snap.exists()) return;
+    const cli = snap.val();
+    if (!cli.tel) { toast('Nenhum número cadastrado'); return; }
+    const link = 'https://melrienerodrigues388-ctrl.github.io/sistema-atendimento/sistema.html?c=' + cliAtivo;
+    const msg = encodeURIComponent('Olá ' + cli.nome + '! Acesse esse link para conversarmos 💜 ' + link);
+    window.open('https://api.whatsapp.com/send?phone=' + cli.tel.replace(/\D/g,'') + '&text=' + msg, '_blank');
   });
 }
 
-// =================== MODAIS ===================
-function abrirModal(id){document.getElementById(id).classList.remove('hidden')}
-function fecharModal(id){document.getElementById(id).classList.add('hidden')}
-function abrirModalNovoCliente(){abrirModal('modalNovoCliente');setTimeout(()=>document.getElementById('novoClienteNome').focus(),100)}
-
-function salvarResposta(){
-  const txt=document.getElementById('novaResposta').value.trim();
-  if(!txt)return;
-  estado.respostas.push(txt);salvarEstado();
-  fecharModal('modalAddResposta');document.getElementById('novaResposta').value='';
-  renderizarPainelDir();mostrarToast('Resposta salva!');
-}
-function salvarTema(){
-  const cat=document.getElementById('temaCat').value;
-  const nome=document.getElementById('temaNome').value.trim();
-  const link=document.getElementById('temaLink').value.trim();
-  if(!nome||!link){mostrarToast('Preencha nome e link');return}
-  if(!estado.temas[cat])estado.temas[cat]=[];
-  estado.temas[cat].push({nome,link});salvarEstado();
-  fecharModal('modalAddTema');
-  document.getElementById('temaNome').value='';document.getElementById('temaLink').value='';
-  renderizarPainelDir();mostrarToast('Tema adicionado!');
-}
-function salvarModelo(){
-  const cat=document.getElementById('modeloCat').value;
-  const nome=document.getElementById('modeloNome').value.trim();
-  const foto=document.getElementById('modeloFoto').value.trim();
-  const pdf=document.getElementById('modeloPdf').value.trim();
-  const seg=document.getElementById('modeloSeguranca').value.trim();
-  const msg=document.getElementById('modeloMsg').value.trim();
-  if(!nome){mostrarToast('Preencha o nome do modelo');return}
-  estado.modelos.push({cat,nome,foto,pdf,seguranca:seg,msg});salvarEstado();
-  fecharModal('modalAddModelo');
-  ['modeloNome','modeloFoto','modeloPdf','modeloSeguranca','modeloMsg'].forEach(id=>document.getElementById(id).value='');
-  renderizarPainelDir();mostrarToast('Modelo cadastrado!');
-}
-
-// =================== ABAS ADMIN ===================
-function mudarAba(aba){
-  document.querySelectorAll('.nav-pill').forEach((b,i)=>b.classList.toggle('ativo',['clientes','config','cadastros'][i]===aba));
-  ['clientes','config','cadastros'].forEach(a=>{
-    const el=document.getElementById('aba-'+a+'-painel');
-    if(!el)return;
-    if(a==='clientes'){
-      el.classList.toggle('ativa',a===aba);
-      el.style.display=a===aba?'flex':'none';
-    } else {
-      el.style.display=a===aba?'block':'none';
-    }
-    if(a===aba&&a==='config'){
-      document.getElementById('cfgEmpresa').value=estado.config.empresa;
-      document.getElementById('cfgNome').value=estado.config.nome;
-      document.getElementById('cfgBoasVindas').value=estado.config.boasVindas;
-      document.getElementById('cfgUsuario').value=estado.config.usuario;
-      document.getElementById('cfgWpp').value=estado.config.wpp;
-      if(estado.logoDataUrl){
-        document.getElementById('configLogoIcon').style.display='none';
-        document.getElementById('configLogoImg').src=estado.logoDataUrl;
-        document.getElementById('configLogoImg').style.display='block';
+function marcarPago() {
+  if (!cliAtivo) return;
+  dbGet(dbRef(db, 'clientes/' + cliAtivo)).then(snap => {
+    if (!snap.exists()) return;
+    const cli = snap.val();
+    dbSet(dbRef(db, 'cadastros/' + cliAtivo), {
+      nome: cli.nome, tel: cli.tel || '', dataPagamento: new Date().toLocaleDateString('pt-BR'), id: cliAtivo
+    });
+    dbUpdate(dbRef(db, 'clientes/' + cliAtivo), { pago: true });
+    toast('✅ Marcado como pago e salvo no cadastro!');
+    dbGet(dbRef(db, 'config/wpp')).then(ws => {
+      if (ws.exists() && ws.val()) {
+        const msg = encodeURIComponent('✅ PEDIDO FECHADO\n\nCliente: ' + cli.nome + '\nTelefone: ' + (cli.tel||'—') + '\nData: ' + new Date().toLocaleDateString('pt-BR'));
+        window.open('https://api.whatsapp.com/send?phone=' + ws.val().replace(/\D/g,'') + '&text=' + msg, '_blank');
       }
-    }
-    if(a===aba&&a==='cadastros')renderizarCadastros();
+    });
   });
 }
 
-// =================== MOBILE ===================
-function toggleSidebar(){document.getElementById('sidebar').classList.toggle('aberta')}
-function fecharMobileMenu(){document.getElementById('mobileMenu').classList.remove('aberto')}
+// CRIAR CLIENTE
+function criarCliente() {
+  const nome = document.getElementById('ncNome').value.trim();
+  const tel = document.getElementById('ncTel').value.trim();
+  if (!nome) { toast('Digite o nome do cliente'); return; }
 
-// =================== UTILITÁRIOS ===================
-function horaAgora(){return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
-function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px'}
-function filtrarClientes(v){renderizarClientes(v)}
-function mostrarToast(msg){
-  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2800);
+  const id = 'c' + Date.now();
+  dbGet(dbRef(db, 'config/boasVindas')).then(snap => {
+    const bv = snap.exists() ? snap.val() : 'Olá! Seja bem-vinda 💜 Como posso te ajudar hoje?';
+    const msgKey = dbPush(dbRef(db, 'clientes/' + id + '/msgs'));
+    dbSet(msgKey, { de:'dono', tipo:'texto', texto: bv, hora: horaAgora(), ts: Date.now() });
+    dbSet(dbRef(db, 'clientes/' + id), {
+      id, nome, tel, notif: 0, pago: false,
+      horaCriacao: new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})
+    }).then(() => {
+      // Adicionar a mensagem depois do set
+      dbSet(msgKey, { de:'dono', tipo:'texto', texto: bv, hora: horaAgora(), ts: Date.now() });
+      const link = 'https://melrienerodrigues388-ctrl.github.io/sistema-atendimento/sistema.html?c=' + id;
+      document.getElementById('linkGeradoTexto').textContent = link;
+      document.getElementById('linkGeradoBox').style.display = 'block';
+      document.getElementById('btnCriarCli').style.display = 'none';
+      toast('Cliente criado! Copie o link 📋');
+    });
+  });
+}
+
+// PAINEL DIREITO
+function mudarPTab(tab) {
+  pTab = tab;
+  document.querySelectorAll('.painel-tab').forEach((t,i) => t.classList.toggle('ativo', ['rapidas','temas','modelos','forms'][i] === tab));
+  renderPainel();
+}
+
+function renderPainel() {
+  const el = document.getElementById('painelConteudo');
+  if (!el) return;
+  el.innerHTML = '';
+
+  if (pTab === 'rapidas') {
+    const t = document.createElement('div'); t.className = 'secao-titulo'; t.textContent = 'Respostas rápidas'; el.appendChild(t);
+    dbGet(dbRef(db, 'respostas')).then(snap => {
+      const resps = snap.exists() ? Object.values(snap.val()) : [
+        'Olá! Tudo bem? Como posso te ajudar? 😊',
+        'Qual é o tema do seu evento?',
+        'Vou te mostrar os modelos disponíveis 💜',
+        'Para fecharmos o pedido, vou liberar o formulário para você preencher.'
+      ];
+      resps.forEach(r => {
+        const item = document.createElement('div'); item.className = 'resp-item'; item.textContent = r;
+        item.onclick = () => { const i = document.getElementById('admInput'); if(i){i.value=r;i.focus()} };
+        el.appendChild(item);
+      });
+      const btn = document.createElement('button'); btn.className = 'btn-add-pequeno'; btn.textContent = '+ Adicionar resposta';
+      btn.onclick = () => abrirModal('modalAddResp'); el.appendChild(btn);
+    });
+
+  } else if (pTab === 'temas') {
+    const t = document.createElement('div'); t.className = 'secao-titulo'; t.textContent = 'Enviar tema'; el.appendChild(t);
+    dbGet(dbRef(db, 'temas')).then(snap => {
+      if (snap.exists()) {
+        const temas = snap.val();
+        Object.entries(temas).forEach(([cat, lista]) => {
+          if (!lista || Object.keys(lista).length === 0) return;
+          const bloco = document.createElement('div'); bloco.className = 'categoria-bloco';
+          const nome = document.createElement('div'); nome.className = 'categoria-nome'; nome.textContent = CATS[cat] || cat; bloco.appendChild(nome);
+          Object.values(lista).forEach(t => {
+            const item = document.createElement('div'); item.className = 'tema-subitem';
+            item.innerHTML = '<span class="tema-texto">' + t.nome + '</span>';
+            const btn = document.createElement('button'); btn.className = 'btn-mostrar'; btn.textContent = 'Mostrar';
+            btn.onclick = () => enviarTema(t); item.appendChild(btn); bloco.appendChild(item);
+          });
+          el.appendChild(bloco);
+        });
+      }
+      const btn = document.createElement('button'); btn.className = 'btn-add-pequeno'; btn.textContent = '+ Adicionar tema';
+      btn.onclick = () => abrirModal('modalAddTema'); el.appendChild(btn);
+    });
+
+  } else if (pTab === 'modelos') {
+    const t = document.createElement('div'); t.className = 'secao-titulo'; t.textContent = 'Modelos de teste'; el.appendChild(t);
+    dbGet(dbRef(db, 'modelos')).then(snap => {
+      if (snap.exists()) {
+        Object.values(snap.val()).forEach(m => {
+          const card = document.createElement('div'); card.className = 'modelo-card-mini';
+          card.innerHTML = '<div class="nome">' + m.nome + '</div><div class="cat">' + (CATS[m.cat]||m.cat) + '</div>';
+          const btn = document.createElement('button'); btn.className = 'btn-enviar-modelo'; btn.textContent = 'Enviar para cliente';
+          btn.onclick = () => enviarModelo(m); card.appendChild(btn); el.appendChild(card);
+        });
+      } else {
+        const v = document.createElement('div'); v.className = 'vazio'; v.textContent = 'Nenhum modelo ainda'; el.appendChild(v);
+      }
+      const btn = document.createElement('button'); btn.className = 'btn-add-pequeno'; btn.textContent = '+ Adicionar modelo';
+      btn.onclick = () => abrirModal('modalAddModelo'); el.appendChild(btn);
+    });
+
+  } else if (pTab === 'forms') {
+    const t = document.createElement('div'); t.className = 'secao-titulo'; t.textContent = 'Liberar formulário'; el.appendChild(t);
+    [['casamento','💍','Casamento'],['cha_bebe','🍼','Chá de Bebê'],['cha_revelacao','🎀','Chá Revelação'],['batizado','👼','Batizado'],['aniversario','🎂','Aniversário']].forEach(([tipo,emoji,label]) => {
+      const btn = document.createElement('button'); btn.className = 'form-tipo-btn';
+      btn.innerHTML = '<span>' + emoji + '</span>' + label;
+      btn.onclick = () => liberarForm(tipo); el.appendChild(btn);
+    });
+  }
+}
+
+function enviarTema(tema) {
+  if (!cliAtivo) { toast('Selecione um cliente'); return; }
+  const msgKey = dbPush(dbRef(db, 'clientes/' + cliAtivo + '/msgs'));
+  dbSet(msgKey, { de:'dono', tipo:'tema', temaNome: tema.nome, temaLink: tema.link, hora: horaAgora(), ts: Date.now() });
+  toast('Tema enviado: ' + tema.nome);
+}
+
+function enviarModelo(m) {
+  if (!cliAtivo) { toast('Selecione um cliente'); return; }
+  const msgKey = dbPush(dbRef(db, 'clientes/' + cliAtivo + '/msgs'));
+  dbSet(msgKey, { de:'dono', tipo:'modelo', nomeModelo: m.nome, foto: m.foto||'', pdf: m.pdf||'', seguranca: m.seguranca||'', mensagem: m.msg||'', hora: horaAgora(), ts: Date.now() });
+  toast('Modelo enviado!');
+}
+
+function liberarForm(tipo) {
+  if (!cliAtivo) { toast('Selecione um cliente'); return; }
+  const msgKey = dbPush(dbRef(db, 'clientes/' + cliAtivo + '/msgs'));
+  dbSet(msgKey, { de:'dono', tipo:'formulario', formTipo: tipo, hora: horaAgora(), ts: Date.now(), respondido: false });
+  toast('Formulário liberado!');
+}
+
+// ABAS ADMIN
+function mudarAba(aba) {
+  document.querySelectorAll('.nav-pill').forEach((b,i) => b.classList.toggle('ativo', ['clientes','config','cadastros'][i] === aba));
+  document.querySelectorAll('.aba-content').forEach(a => a.classList.remove('ativa'));
+  document.getElementById('aba-' + aba).classList.add('ativa');
+  if (aba === 'cadastros') renderCads();
+}
+
+function renderCads() {
+  dbGet(dbRef(db, 'cadastros')).then(snap => {
+    const lista = document.getElementById('cadsLista');
+    const total = document.getElementById('totalCads');
+    if (!snap.exists()) { lista.innerHTML = '<div class="vazio">Nenhum cliente pago ainda.</div>'; total.textContent = '0 clientes'; return; }
+    const cads = Object.values(snap.val());
+    total.textContent = cads.length + ' clientes';
+    lista.innerHTML = '';
+    cads.reverse().forEach(c => {
+      const card = document.createElement('div'); card.className = 'cadastro-card';
+      card.innerHTML = '<div class="cad-nome">' + c.nome + '</div><div class="cad-info">' + (c.tel||'—') + ' · Pago em ' + c.dataPagamento + '</div><div class="cad-tags"><span class="badge badge-pago">✅ Pago</span></div>';
+      lista.appendChild(card);
+    });
+  });
+}
+
+// MODAIS
+function abrirModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+  if (id === 'modalNovoCli') {
+    document.getElementById('linkGeradoBox').style.display = 'none';
+    document.getElementById('btnCriarCli').style.display = 'block';
+    document.getElementById('ncNome').value = '';
+    document.getElementById('ncTel').value = '';
+    setTimeout(() => document.getElementById('ncNome').focus(), 100);
+  }
+}
+function fecharModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function salvarResp() {
+  const txt = document.getElementById('novaResp').value.trim();
+  if (!txt) return;
+  const key = dbPush(dbRef(db, 'respostas'));
+  dbSet(key, txt).then(() => { fecharModal('modalAddResp'); document.getElementById('novaResp').value=''; renderPainel(); toast('Resposta salva!'); });
+}
+
+function salvarTema() {
+  const cat = document.getElementById('temaCat').value;
+  const nome = document.getElementById('temaNome').value.trim();
+  const link = document.getElementById('temaLink').value.trim();
+  if (!nome || !link) { toast('Preencha nome e link'); return; }
+  const key = dbPush(dbRef(db, 'temas/' + cat));
+  dbSet(key, {nome, link}).then(() => { fecharModal('modalAddTema'); document.getElementById('temaNome').value=''; document.getElementById('temaLink').value=''; renderPainel(); toast('Tema adicionado!'); });
+}
+
+function salvarModelo() {
+  const nome = document.getElementById('modNome').value.trim();
+  if (!nome) { toast('Digite o nome do modelo'); return; }
+  const key = dbPush(dbRef(db, 'modelos'));
+  dbSet(key, {
+    cat: document.getElementById('modCat').value,
+    nome, foto: document.getElementById('modFoto').value.trim(),
+    pdf: document.getElementById('modPdf').value.trim(),
+    seguranca: document.getElementById('modSeg').value.trim(),
+    msg: document.getElementById('modMsg').value.trim()
+  }).then(() => { fecharModal('modalAddModelo'); renderPainel(); toast('Modelo cadastrado!'); });
+}
+
+// UTILITÁRIOS
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('aberta'); }
+function horaAgora() { return new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function toast(msg) { const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2800); }
+function copiarTexto(id, btn) {
+  const txt = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(txt).then(() => { btn.textContent='Copiado!'; setTimeout(()=>btn.textContent='Copiar',1800); });
 }
 </script>
 </body>
